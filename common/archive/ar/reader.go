@@ -2,9 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-/**
- * Read an ar archive file.
- */
+// Read an ar file with BSD formatted file names.
+
 package ar
 
 import (
@@ -28,16 +27,16 @@ type arFileInfo struct {
 }
 
 // os.FileInfo interface
-func (fi arFileInfo) Name() string       { return fi.name }
-func (fi arFileInfo) Size() int64        { return fi.size }
-func (fi arFileInfo) Mode() os.FileMode  { return os.FileMode(fi.mode) }
-func (fi arFileInfo) ModTime() time.Time { return time.Unix(int64(fi.modtime), 0) }
-func (fi arFileInfo) IsDir() bool        { return fi.Mode().IsDir() }
-func (fi arFileInfo) Sys() interface{}   { return fi }
+func (fi *arFileInfo) Name() string       { return fi.name }
+func (fi *arFileInfo) Size() int64        { return fi.size }
+func (fi *arFileInfo) Mode() os.FileMode  { return os.FileMode(fi.mode) }
+func (fi *arFileInfo) ModTime() time.Time { return time.Unix(int64(fi.modtime), 0) }
+func (fi *arFileInfo) IsDir() bool        { return fi.Mode().IsDir() }
+func (fi *arFileInfo) Sys() interface{}   { return fi }
 
 // Extra
-func (fi arFileInfo) UserId() int  { return fi.uid }
-func (fi arFileInfo) GroupId() int { return fi.gid }
+func (fi *arFileInfo) UserId() int  { return fi.uid }
+func (fi *arFileInfo) GroupId() int { return fi.gid }
 
 var (
 	ErrHeader = errors.New("archive/ar: invalid ar header")
@@ -47,8 +46,8 @@ type ReaderStage uint
 
 const (
 	READ_HEADER ReaderStage = iota
-	READ_BODY               = iota
-	READ_CLOSED             = iota
+	READ_BODY
+	READ_CLOSED
 )
 
 type Reader struct {
