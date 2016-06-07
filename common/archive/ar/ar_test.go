@@ -6,6 +6,7 @@ package ar
 
 import (
 	"bytes"
+	"github.com/maruel/ut"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -43,22 +44,18 @@ var (
 )
 
 func TestWriterCreatesTestFile1(t *testing.T) {
-	b := bytes.NewBufferString("")
+	b := &bytes.Buffer{}
 	data := []byte("abc123")
 
 	ar := NewWriter(b)
-	err := ar.Add("filename1", data)
-	if err != nil {
+	if err := ar.Add("filename1", data); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
-	err = ar.Close()
-	if err != nil {
+	if err := ar.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 
-	if g, e := b.Bytes(), []byte(TestFile1); !bytes.Equal(g, e) {
-		t.Errorf("\ndata = \n%v\n%v", g, e)
-	}
+	ut.AssertEqual(t, []byte(TestFile1), b.Bytes())
 }
 
 func TestReaderOnTestFile1(t *testing.T) {
@@ -73,42 +70,34 @@ func TestReaderOnTestFile1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Header: %v", err)
 	}
-	if g, e := h.Name(), "filename1"; g != e {
-		t.Errorf("Name() = %q; want %q", g, e)
-	}
-	if g, e := h.Size(), int64(6); g != e {
-		t.Errorf("Size() = %d; want %d", g, e)
-	}
-	if g, e := h.ModTime(), time.Unix(1447140471, 0); !g.Equal(e) {
-		t.Errorf("ModTime() = %v; want %v", g, e)
-	}
+
+	ut.AssertEqual(t, "filename1", h.Name())
+	ut.AssertEqual(t, int64(6), h.Size())
+	ut.AssertEqual(t, time.Unix(1447140471, 0), h.ModTime())
 
 	data := make([]byte, 6)
 	n, err := ar.Read(data)
 	if err != nil {
 		t.Fatalf("Data: %v", err)
 	}
-	if g, e := n, 6; g != e {
-		t.Errorf("n = %v; want %v", g, e)
-	}
-	if g, e := data, []byte("abc123"); !bytes.Equal(g, e) {
-		t.Errorf("data = %v; want %v", g, e)
-	}
+	ut.AssertEqual(t, 6, n)
+	ut.AssertEqual(t, []byte("abc123"), data)
 
-	err = ar.Close()
-	if err != nil {
+	if err := ar.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 }
 
 func TestWithSystemArCommandList(t *testing.T) {
-	_, err := exec.LookPath("ar")
-	if err != nil {
+	if _, err := exec.LookPath("ar"); err != nil {
 		t.Skipf("ar command not found: %v", err)
 	}
 
 	// Write out to an archive file
 	tmpfile, err := ioutil.TempFile("", "go-ar-test.")
+	if err != nil {
+		t.Fatalf("unable to create temp file: %v", err)
+	}
 	defer os.Remove(tmpfile.Name()) // clean up
 	ar := NewWriter(tmpfile)
 	ar.Add("file1.txt", []byte("file1 contents"))
@@ -120,8 +109,7 @@ func TestWithSystemArCommandList(t *testing.T) {
 	cmd_list := exec.Command("ar", "t", tmpfile.Name())
 	var cmd_list_out_buf bytes.Buffer
 	cmd_list.Stdout = &cmd_list_out_buf
-	err = cmd_list.Run()
-	if err != nil {
+	if err := cmd_list.Run(); err != nil {
 		t.Fatalf("ar command failed: %v\n%s", err, cmd_list_out_buf.String())
 	}
 
@@ -130,9 +118,7 @@ func TestWithSystemArCommandList(t *testing.T) {
 file2.txt
 dir1/file3.txt
 `
-	if strings.Compare(cmd_list_actual_out, cmd_list_expect_out) != 0 {
-		t.Fatalf("ar command output: '%s'", cmd_list_actual_out)
-	}
+	ut.AssertEqual(t, cmd_list_expect_out, cmd_list_actual_out)
 }
 
 func TestWithSystemArCommandExtract(t *testing.T) {
@@ -143,6 +129,9 @@ func TestWithSystemArCommandExtract(t *testing.T) {
 
 	// Write out to an archive file
 	tmpfile, err := ioutil.TempFile("", "go-ar-test.")
+	if err != nil {
+		t.Fatalf("unable to create temp file: %v", err)
+	}
 	defer os.Remove(tmpfile.Name()) // clean up
 	ar := NewWriter(tmpfile)
 	ar.Add("file1.txt", []byte("file1 contents"))
@@ -157,10 +146,9 @@ func TestWithSystemArCommandExtract(t *testing.T) {
 		Args: []string{"ar", "x", tmpfile.Name()},
 		Dir:  tmpdir,
 	}
-	err = cmd_extract.Run()
 	var cmd_extract_out_buf bytes.Buffer
 	cmd_extract.Stdout = &cmd_extract_out_buf
-	if err != nil {
+	if err := cmd_extract.Run(); err != nil {
 		t.Fatalf("ar command failed: %v\n%s", err, cmd_extract_out_buf.String())
 	}
 
