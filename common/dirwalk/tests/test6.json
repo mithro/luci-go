@@ -1,0 +1,18 @@
+{
+	"Name": "test6",
+	"Comment": "Over 250 directories with 10k of small files",
+	"Tree": {
+		"Files": [
+			{
+				"MinNumber":1000,
+				"MaxNumber":1000,
+				"MinSize":0,
+				"MaxSize":65536
+			}
+		],
+		"Dir": {
+			"Number":[5,5,10],
+			"MinFileDepth":3
+		}
+	}
+}
