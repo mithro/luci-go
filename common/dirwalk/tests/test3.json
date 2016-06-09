@@ -1,0 +1,24 @@
+{
+	"Name": "test3",
+	"Comment": "Both small (0->64kbytes) and large (10m->250m) files in single directory",
+	"Tree": {
+		"Files": [
+			{
+				"MinNumber":1000,
+				"MaxNumber":1000,
+				"MinSize":0,
+				"MaxSize":65536
+			},
+			{
+				"MinNumber":10,
+				"MaxNumber":10,
+				"MinSize":10000000,
+				"MaxSize":250000000
+			}
+		],
+		"Dir": {
+			"Number":[0],
+			"MinFileDepth":0
+		}
+	}
+}

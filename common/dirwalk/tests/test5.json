@@ -1,0 +1,24 @@
+{
+	"Name": "test5",
+	"Comment": "Mixture of small and large files over range of directories",
+	"Tree": {
+		"Files": [
+			{
+				"MinNumber":10,
+				"MaxNumber":1000,
+				"MinSize":0,
+				"MaxSize":65536
+			},
+			{
+				"MinNumber":0,
+				"MaxNumber":5,
+				"MinSize":10000000,
+				"MaxSize":100000000
+			}
+		],
+		"Dir": {
+			"Number":[3,3,3,1],
+			"MinFileDepth":3
+		}
+	}
+}
