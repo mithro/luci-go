@@ -1,0 +1,18 @@
+{
+	"Name": "test4",
+	"Comment": "Lots of small files over range of directories",
+	"Tree": {
+		"Files": [
+			{
+				"MinNumber":100,
+				"MaxNumber":1000,
+				"MinSize":0,
+				"MaxSize":65536
+			}
+		],
+		"Dir": {
+			"Number":[3,3,3,1],
+			"MinFileDepth":3
+		}
+	}
+}

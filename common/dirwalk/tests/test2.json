@@ -1,0 +1,18 @@
+{
+	"Name": "test2",
+	"Comment": "100 large files (10m->250m) in single directory",
+	"Tree": {
+		"Files": [
+			{
+				"MinNumber":100,
+				"MaxNumber":100,
+				"MinSize":10000000,
+				"MaxSize":250000000
+			}
+		],
+		"Dir": {
+			"Number":[0],
+			"MinFileDepth":0
+		}
+	}
+}
