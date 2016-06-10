@@ -18,8 +18,8 @@ import (
 
 type ArFileInfo interface {
 	os.FileInfo
-	UserId() bool
-	GroupId() bool
+	UserId() int
+	GroupId() int
 }
 
 type arFileInfoData struct {
@@ -44,10 +44,6 @@ func (fi *arFileInfoData) Sys() interface{}   { return fi }
 // Extra
 func (fi *arFileInfoData) UserId() int  { return fi.uid }
 func (fi *arFileInfoData) GroupId() int { return fi.gid }
-
-var (
-	ErrHeader = errors.New("archive/ar: invalid ar header")
-)
 
 type readerStage uint
 
@@ -76,7 +72,7 @@ func NewReader(r io.Reader) (*Reader, error) {
 func (ar *Reader) checkBytes(name string, str []byte) error {
 	buffer := make([]byte, len(str))
 
-	count, err := io.ReadFull(ar.r, buffer)
+	_, err := io.ReadFull(ar.r, buffer)
 	if err != nil {
 		return fmt.Errorf("%s: error in reading bytes (%v)", name, err)
 	}
@@ -139,9 +135,8 @@ func (ar *Reader) readPartial(name string, data []byte) error {
 	switch ar.stage {
 	case READ_HEADER:
 		return errors.New("usage error, need to read header first")
-		// Good
 	case READ_BODY:
-		return nil
+		// Good
 	case READ_CLOSED:
 		return errors.New("usage error, archive closed")
 	default:
@@ -222,7 +217,7 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	fi.gid = int(groupid)
 
 	// File mode, 8 bytes
-	filemod, err := ar.readHeaderBytes("groupid", 8, "%8o")
+	filemod, err := ar.readHeaderBytes("filemod", 8, "%8o")
 	if err != nil {
 		return nil, err
 	}
@@ -235,15 +230,15 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	}
 	fi.size = size - namelen
 
-	ar.stage = READ_BODY
-	ar.bytesrequired = size
-	ar.needspadding = (ar.bytesrequired%2 != 0)
-
 	// File magic, 2 bytes
 	err = ar.checkBytes("filemagic", []byte("\x60\n"))
 	if err != nil {
 		return nil, err
 	}
+
+	ar.stage = READ_BODY
+	ar.bytesrequired = size
+	ar.needspadding = (ar.bytesrequired%2 != 0)
 
 	// Filename - BSD variant
 	filename := make([]byte, namelen)
@@ -267,6 +262,7 @@ func (ar *Reader) Read(b []byte) (n int, err error) {
 	}
 	return len(b), nil
 }
-func (ar *Reader) Next() (*ArFileInfo, error) {
+
+func (ar *Reader) Next() (ArFileInfo, error) {
 	return ar.readHeader()
 }

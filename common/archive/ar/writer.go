@@ -88,6 +88,7 @@ func (aw *Writer) checkWrite() error {
 	default:
 		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
+	return nil
 }
 
 // Check we have finished writing bytes

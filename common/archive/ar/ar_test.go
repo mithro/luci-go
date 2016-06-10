@@ -72,9 +72,11 @@ func TestReaderOnTestFile1(t *testing.T) {
 		t.Fatalf("Header: %v", err)
 	}
 
+	ut.AssertEqual(t, time.Unix(1447140471, 0), h.ModTime())
+	ut.AssertEqual(t, 1000, h.UserId())
+	ut.AssertEqual(t, 1000, h.GroupId())
 	ut.AssertEqual(t, "filename1", h.Name())
 	ut.AssertEqual(t, int64(6), h.Size())
-	ut.AssertEqual(t, time.Unix(1447140471, 0), h.ModTime())
 
 	data := make([]byte, 6)
 	n, err := ar.Read(data)
