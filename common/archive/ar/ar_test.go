@@ -6,7 +6,6 @@ package ar
 
 import (
 	"bytes"
-	"github.com/maruel/ut"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/maruel/ut"
 )
 
 var (
