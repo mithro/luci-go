@@ -18,17 +18,17 @@ const DEFAULT_USER = 1000
 const DEFAULT_GROUP = 1000
 const DEFAULT_MODE = 0100640 // 100640 -- Octal
 
-type WriterStage uint
+type writerStage uint
 
 const (
-	WRITE_HEADER WriterStage = iota
+	WRITE_HEADER writerStage = iota
 	WRITE_BODY
 	WRITE_CLOSED
 )
 
 type Writer struct {
 	w     io.Writer
-	stage WriterStage
+	stage writerStage
 
 	bytesrequired int64
 	needspadding  bool
@@ -36,7 +36,7 @@ type Writer struct {
 
 func NewWriter(w io.Writer) *Writer {
 	io.WriteString(w, "!<arch>\n")
-	return &Writer{w: w, stage: WRITE_HEADER, bytesrequired: 0, needspadding: false}
+	return &Writer{w: w, stage: WRITE_HEADER}
 }
 
 func (aw *Writer) Close() error {
@@ -44,20 +44,20 @@ func (aw *Writer) Close() error {
 	case WRITE_HEADER:
 		// Good
 	case WRITE_BODY:
-		return errors.New("Usage error, writing a file.")
+		return errors.New("usage error, writing a file")
 	case WRITE_CLOSED:
-		return errors.New("Usage error, archive already closed.")
+		return errors.New("usage error, archive already closed")
 	default:
-		panic(fmt.Sprintf("Unknown writer mode: %d", aw.stage))
+		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
-	//aw.w.Close()
 	aw.stage = WRITE_CLOSED
+	aw.w = nil
 	return nil
 }
 
 func (aw *Writer) wroteBytes(numbytes int64) error {
 	if numbytes > aw.bytesrequired {
-		panic(fmt.Sprintf("To much data written! Needed %d, got %d", aw.bytesrequired, numbytes))
+		log.Fatalf("to much data written, needed %d, got %d", aw.bytesrequired, numbytes)
 	}
 
 	aw.bytesrequired -= numbytes
@@ -78,21 +78,21 @@ func (aw *Writer) wroteBytes(numbytes int64) error {
 func (aw *Writer) checkWrite() error {
 	switch aw.stage {
 	case WRITE_HEADER:
-		return errors.New("Usage error, need to write header first.")
+		return errors.New("usage error, need to write header first")
 		// Good
 	case WRITE_BODY:
 		return nil
 	case WRITE_CLOSED:
-		return errors.New("Usage error, archive closed.")
+		return errors.New("usage error, archive closed")
 	default:
-		panic(fmt.Sprintf("Unknown writer mode: %d", aw.stage))
+		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
 }
 
 // Check we have finished writing bytes
 func (aw *Writer) checkFinished() {
 	if aw.bytesrequired != 0 {
-		panic(fmt.Sprintf("Didn't write enough bytes %d still needed, archive corrupted!", aw.bytesrequired))
+		log.Fatalf("didn't write enough bytes %d still needed, archive corrupted", aw.bytesrequired)
 	}
 }
 
@@ -104,7 +104,7 @@ func (aw *Writer) writePartial(data []byte) error {
 
 	datalen := int64(len(data))
 	if datalen > aw.bytesrequired {
-		return errors.New(fmt.Sprintf("To much data! Needed %d, got %d", aw.bytesrequired, datalen))
+		return fmt.Errorf("to much data, needed %d, got %d", aw.bytesrequired, datalen)
 	}
 
 	aw.w.Write(data)
@@ -120,7 +120,7 @@ func (aw *Writer) WriteReader(data io.Reader) error {
 
 	count, err := io.Copy(aw.w, data)
 	if err != nil {
-		panic(fmt.Sprintf("err while copying (%s), archive is probably corrupted!", err))
+		log.Fatalf("error while copying (%s), archive is probably corrupted", err)
 	}
 	aw.wroteBytes(count)
 	aw.checkFinished()
@@ -136,7 +136,7 @@ func (aw *Writer) WriteBytes(data []byte) error {
 
 	datalen := int64(len(data))
 	if datalen != aw.bytesrequired {
-		return errors.New(fmt.Sprintf("Wrong amount of data! Needed %d, got %d", aw.bytesrequired, datalen))
+		return fmt.Errorf("wrong amount of data, needed %d, got %d", aw.bytesrequired, datalen)
 	}
 
 	aw.writePartial(data)
@@ -149,11 +149,11 @@ func (aw *Writer) writeHeaderBytes(name string, size int64, modtime uint64, owne
 	case WRITE_HEADER:
 		// Good
 	case WRITE_BODY:
-		return errors.New("Usage error, already writing a file.")
+		return errors.New("usage error, already writing a file.")
 	case WRITE_CLOSED:
-		return errors.New("Usage error, archive closed.")
+		return errors.New("usage error, archive closed.")
 	default:
-		panic(fmt.Sprintf("Unknown writer mode: %d", aw.stage))
+		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
@@ -193,12 +193,12 @@ func (aw *Writer) WriteHeaderDefault(name string, size int64) error {
 
 func (aw *Writer) WriteHeader(stat os.FileInfo) error {
 	if stat.IsDir() {
-		return errors.New("Only work with files, not directories.")
+		return errors.New("only work with files, not directories")
 	}
 
 	mode := stat.Mode()
 	if mode&os.ModeSymlink == os.ModeSymlink {
-		return errors.New("Only work with files, not symlinks.")
+		return errors.New("only work with files, not symlinks")
 	}
 
 	/* FIXME: Should we also exclude other "special" files?

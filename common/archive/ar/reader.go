@@ -15,7 +15,13 @@ import (
 	"time"
 )
 
-type arFileInfo struct {
+type ArFileInfo interface {
+	os.FileInfo
+	UserId() bool
+	GroupId() bool
+}
+
+type arFileInfoData struct {
 	// os.FileInfo parts
 	name    string
 	size    int64
@@ -27,44 +33,43 @@ type arFileInfo struct {
 }
 
 // os.FileInfo interface
-func (fi *arFileInfo) Name() string       { return fi.name }
-func (fi *arFileInfo) Size() int64        { return fi.size }
-func (fi *arFileInfo) Mode() os.FileMode  { return os.FileMode(fi.mode) }
-func (fi *arFileInfo) ModTime() time.Time { return time.Unix(int64(fi.modtime), 0) }
-func (fi *arFileInfo) IsDir() bool        { return fi.Mode().IsDir() }
-func (fi *arFileInfo) Sys() interface{}   { return fi }
+func (fi *arFileInfoData) Name() string       { return fi.name }
+func (fi *arFileInfoData) Size() int64        { return fi.size }
+func (fi *arFileInfoData) Mode() os.FileMode  { return os.FileMode(fi.mode) }
+func (fi *arFileInfoData) ModTime() time.Time { return time.Unix(int64(fi.modtime), 0) }
+func (fi *arFileInfoData) IsDir() bool        { return fi.Mode().IsDir() }
+func (fi *arFileInfoData) Sys() interface{}   { return fi }
 
 // Extra
-func (fi *arFileInfo) UserId() int  { return fi.uid }
-func (fi *arFileInfo) GroupId() int { return fi.gid }
+func (fi *arFileInfoData) UserId() int  { return fi.uid }
+func (fi *arFileInfoData) GroupId() int { return fi.gid }
 
 var (
 	ErrHeader = errors.New("archive/ar: invalid ar header")
 )
 
-type ReaderStage uint
+type readerStage uint
 
 const (
-	READ_HEADER ReaderStage = iota
+	READ_HEADER readerStage = iota
 	READ_BODY
 	READ_CLOSED
 )
 
 type Reader struct {
-	stage         ReaderStage
+	stage         readerStage
 	r             io.Reader
 	bytesrequired int64
 	needspadding  bool
 }
 
 func NewReader(r io.Reader) (*Reader, error) {
-	reader := Reader{r: r, bytesrequired: 0, needspadding: false}
+	reader := Reader{r: r, stage: READ_HEADER}
 	err := reader.checkBytes("header", []byte("!<arch>\n"))
 	if err != nil {
 		return nil, err
-	} else {
-		return &reader, nil
 	}
+	return &reader, nil
 }
 
 func (ar *Reader) checkBytes(name string, str []byte) error {
@@ -72,17 +77,13 @@ func (ar *Reader) checkBytes(name string, str []byte) error {
 
 	count, err := io.ReadFull(ar.r, buffer)
 	if err != nil {
-		return err
-	}
-
-	if count != len(buffer) {
-		return errors.New(fmt.Sprintf("%s: Not enough data read (only %d, needed %d)", name, count, len(buffer)))
+		return fmt.Errorf("%s: error in reading bytes (%v)", name, err)
 	}
 
 	if bytes.Equal(str, buffer) {
 		return nil
 	} else {
-		return errors.New(fmt.Sprintf("%s: error in bytes (wanted: %v got: %v)", name, buffer, str))
+		return fmt.Errorf("%s: error in bytes (wanted: %v got: %v)", name, buffer, str)
 	}
 }
 
@@ -91,20 +92,20 @@ func (ar *Reader) Close() error {
 	case READ_HEADER:
 		// Good
 	case READ_BODY:
-		return errors.New("Usage error, reading a file.")
+		return errors.New("usage error, reading a file.")
 	case READ_CLOSED:
-		return errors.New("Usage error, archive already closed.")
+		return errors.New("usage error, archive already closed.")
 	default:
-		panic(fmt.Sprintf("Unknown reader mode: %d", ar.stage))
+		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
-	//ar.r.Close()
 	ar.stage = READ_CLOSED
+	ar.r = nil
 	return nil
 }
 
-func (ar *Reader) readBytes(numbytes int64) error {
+func (ar *Reader) completeReadBytes(numbytes int64) error {
 	if numbytes > ar.bytesrequired {
-		return errors.New(fmt.Sprintf("To much data read! Needed %d, got %d", ar.bytesrequired, numbytes))
+		return fmt.Errorf("to much data read, needed %d, got %d", ar.bytesrequired, numbytes)
 	}
 
 	ar.bytesrequired -= numbytes
@@ -124,42 +125,38 @@ func (ar *Reader) readBytes(numbytes int64) error {
 	return nil
 }
 
-// Check you can write bytes to the ar at this moment.
-func (ar *Reader) checkRead() error {
-	switch ar.stage {
-	case READ_HEADER:
-		return errors.New("Usage error, need to read header first.")
-		// Good
-	case READ_BODY:
-		return nil
-	case READ_CLOSED:
-		return errors.New("Usage error, archive closed.")
-	default:
-		panic(fmt.Sprintf("Unknown reader mode: %d", ar.stage))
-	}
-}
-
 // Check we have finished writing bytes
 func (ar *Reader) checkFinished() error {
 	if ar.bytesrequired != 0 {
-		return errors.New(fmt.Sprintf("Didn't read enough bytes %d still needed!", ar.bytesrequired))
+		return fmt.Errorf("didn't read enough %d bytes still needed", ar.bytesrequired)
 	}
 	return nil
 }
 
 func (ar *Reader) readPartial(name string, data []byte) error {
-	err := ar.checkRead()
-	if err != nil {
-		return err
+	// Check you can read bytes from the ar at this moment.
+	switch ar.stage {
+	case READ_HEADER:
+		return errors.New("usage error, need to read header first")
+		// Good
+	case READ_BODY:
+		return nil
+	case READ_CLOSED:
+		return errors.New("usage error, archive closed")
+	default:
+		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
 
 	datalen := int64(len(data))
 	if datalen > ar.bytesrequired {
-		return errors.New(fmt.Sprintf("To much data! Wanted %d, but had %d", ar.bytesrequired, datalen))
+		return fmt.Errorf("to much data, wanted %d, but had %d", ar.bytesrequired, datalen)
 	}
 
 	count, err := io.ReadFull(ar.r, data)
-	ar.readBytes(int64(count))
+	if err != nil {
+		return err
+	}
+	ar.completeReadBytes(int64(count))
 	return nil
 }
 
@@ -177,24 +174,24 @@ func (ar *Reader) readHeaderBytes(name string, bytes int, formatstr string) (int
 	}
 
 	if output <= 0 {
-		return -1, errors.New(fmt.Sprintf("%s: bad value %d", name, output))
+		return -1, fmt.Errorf("%s: bad value %d", name, output)
 	}
 	return output, nil
 }
 
-func (ar *Reader) readHeader() (*arFileInfo, error) {
+func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	switch ar.stage {
 	case READ_HEADER:
 		// Good
 	case READ_BODY:
-		return nil, errors.New("Usage error, already writing a file.")
+		return nil, errors.New("usage error, already writing a file")
 	case READ_CLOSED:
-		return nil, errors.New("Usage error, archive closed.")
+		return nil, errors.New("usage error, archive closed")
 	default:
-		panic(fmt.Sprintf("Unknown writer mode: %d", ar.stage))
+		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
 
-	var fi arFileInfo
+	var fi arFileInfoData
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
 	namelen, err := ar.readHeaderBytes("filename length", 16, "#1/%13d")
@@ -269,6 +266,6 @@ func (ar *Reader) Read(b []byte) (n int, err error) {
 	}
 	return len(b), nil
 }
-func (ar *Reader) Next() (*arFileInfo, error) {
+func (ar *Reader) Next() (*ArFileInfo, error) {
 	return ar.readHeader()
 }
