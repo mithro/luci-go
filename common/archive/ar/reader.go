@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"io/ioutil"
 	"os"
 	"time"
 )
@@ -20,23 +20,14 @@ var (
 	ErrReadAfterClose = UsageError{msg: "read after file closed"}
 )
 
-type ReadConstantIOError struct {
+type ReadDataIOError struct {
 	IOError
 	wanted []byte
 	got    []byte
 }
 
-func (e *ReadConstantIOError) Error() string {
-	return fmt.Sprintf("archive/ar: io error (wanted %v, got %v) during %s -- *archive corrupted*", e.wanted, e.got, e.IOError.section)
-}
-
-type ReadDataIOError struct {
-	IOError
-	data interface{}
-}
-
 func (e *ReadDataIOError) Error() string {
-	return fmt.Sprintf("archive/ar: io error (got %v) during %s -- *archive corrupted*", e.data, e.IOError.section)
+	return fmt.Sprintf("archive/ar: io error %v (wanted '%s', got '%s') during %s -- *archive corrupted*", e.IOError.err, e.wanted, e.got, e.IOError.section)
 }
 
 // ReadTooLongFatalError indicates that the wrong amount of data *was* written into the archive.
@@ -96,21 +87,15 @@ func (fi *arFileInfoData) GroupId() int { return fi.gid }
 
 type readerStage uint
 
-const (
-	readStageHeader readerStage = iota
-	readStageBody
-	readStageClosed
-)
 
 type Reader struct {
-	stage               readerStage
 	r                   io.Reader
-	streamSizeRemaining int64
+	bodyReader	io.LimitedReader
 	bodyHasPadding      bool
 }
 
 func NewReader(r io.Reader) (*Reader, Error) {
-	reader := Reader{r: r, stage: readStageHeader}
+	reader := Reader{r: r}
 	if err := reader.checkBytes("header", []byte("!<arch>\n")); err != nil {
 		return nil, err
 	}
@@ -125,76 +110,18 @@ func (ar *Reader) checkBytes(section string, str []byte) Error {
 	}
 
 	if !bytes.Equal(str, buffer) {
-		return &ReadConstantIOError{IOError: IOError{section: section}, wanted: str, got: buffer}
+		return &ReadDataIOError{IOError: IOError{section: section}, wanted: str, got: buffer}
 	}
 
 	return nil
 }
 
 func (ar *Reader) Close() Error {
-	switch ar.stage {
-	case readStageHeader:
-		// Good
-	case readStageBody:
-		return &UsageError{msg: "currently reading file body"}
-	case readStageClosed:
+	if ar.r == nil {
 		return &ErrReadAfterClose
-	default:
-		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
-	ar.stage = readStageClosed
 	ar.r = nil
 	return nil
-}
-
-func (ar *Reader) completeReadBytes(numbytes int64) Error {
-	if numbytes > ar.streamSizeRemaining {
-		return &ReadTooLongFatalError{needed: ar.streamSizeRemaining, got: numbytes}
-	}
-
-	ar.streamSizeRemaining -= numbytes
-	if ar.streamSizeRemaining != 0 {
-		return nil
-	}
-
-	// Padding to 16bit boundary
-	if ar.bodyHasPadding {
-		if err := ar.checkBytes("body padding", []byte{'\n'}); err != nil {
-			return err
-		}
-		ar.bodyHasPadding = false
-	}
-	ar.stage = readStageHeader
-	return nil
-}
-
-// Check we have finished reading bytes
-func (ar *Reader) checkFinished() Error {
-	return nil
-}
-
-func (ar *Reader) readPartial(section string, data []byte) Error {
-	// Check you can read bytes from the ar at this moment.
-	switch ar.stage {
-	case readStageHeader:
-		return &UsageError{msg: "need to read header first"}
-	case readStageBody:
-		// Good
-	case readStageClosed:
-		return &ErrReadAfterClose
-	default:
-		log.Fatalf("unknown reader mode: %d", ar.stage)
-	}
-
-	if datalen := int64(len(data)); datalen > ar.streamSizeRemaining {
-		return &ReadTooLongError{needed: ar.streamSizeRemaining, got: datalen}
-	}
-
-	count, err := io.ReadFull(ar.r, data)
-	if err != nil {
-		return &IOError{section: section, err: err}
-	}
-	return ar.completeReadBytes(int64(count))
 }
 
 func (ar *Reader) readHeaderBytes(section string, bytes int, formatstr string) (int64, Error) {
@@ -205,31 +132,37 @@ func (ar *Reader) readHeaderBytes(section string, bytes int, formatstr string) (
 
 	var output int64
 	if _, err := fmt.Sscanf(string(data), formatstr, &output); err != nil {
-		return -1, &IOError{section: section, err: err}
+		return -1, &ReadDataIOError{IOError: IOError{section: section, err:err}, wanted: []byte(formatstr), got: data}
 	}
 
 	if output <= 0 {
-		return -1, &ReadDataIOError{IOError: IOError{section: section}, data: output}
+		return -1, &ReadDataIOError{IOError: IOError{section: section}, wanted: []byte(formatstr), got: data}
 	}
 	return output, nil
 }
 
-func (ar *Reader) readHeader() (*arFileInfoData, Error) {
-	switch ar.stage {
-	case readStageHeader:
-		// Good
-	case readStageBody:
-		return nil, &UsageError{msg: "currently writing a file"}
-	case readStageClosed:
+func (ar *Reader) Next() (ArFileInfo, Error) {
+	if ar.r == nil {
 		return nil, &ErrReadAfterClose
-	default:
-		log.Fatalf("unknown reader mode: %d", ar.stage)
+	}
+
+	if (ar.bodyReader.N > 0) {
+		// Read any remains of the previous file
+		io.Copy(ioutil.Discard, &ar.bodyReader)
+
+		// Padding to 16bit boundary
+		if ar.bodyHasPadding {
+			if err := ar.checkBytes("body padding", []byte{'\n'}); err != nil {
+				return nil, err
+			}
+			ar.bodyHasPadding = false
+		}
 	}
 
 	var fi arFileInfoData
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
-	namelen, err := ar.readHeaderBytes("file header filename length", 16, "#1/%13d")
+	namelen, err := ar.readHeaderBytes("file header file path length", 16, "#1/%13d")
 	if err != nil {
 		return nil, err
 	}
@@ -274,27 +207,19 @@ func (ar *Reader) readHeader() (*arFileInfoData, Error) {
 		return nil, err
 	}
 
-	ar.stage = readStageBody
-	ar.streamSizeRemaining = size
-	ar.bodyHasPadding = (ar.streamSizeRemaining%2 != 0)
+	ar.bodyReader = io.LimitedReader{R: ar.r, N:size}
+	ar.bodyHasPadding = (size%2 != 0)
 
 	// Filename - BSD variant
 	filename := make([]byte, namelen)
-	if err = ar.readPartial("body filename", filename); err != nil {
-		return nil, err
+	if _, err := io.ReadFull(&ar.bodyReader, filename); err != nil {
+		return nil, &IOError{section: "body filename", err: err}
 	}
 	fi.name = string(filename)
 
 	return &fi, nil
 }
 
-func (ar *Reader) Read(b []byte) (int, Error) {
-	if err := ar.readPartial("body contents", b); err != nil {
-		return -1, err
-	}
-	return len(b), nil
-}
-
-func (ar *Reader) Next() (ArFileInfo, Error) {
-	return ar.readHeader()
+func (ar *Reader) Body() io.Reader {
+	return &ar.bodyReader
 }

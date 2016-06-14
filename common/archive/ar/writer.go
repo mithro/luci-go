@@ -111,9 +111,9 @@ func (aw *Writer) wroteBytes(numbytes int64) Error {
 	return nil
 }
 
-// canWriteContent returns nil if the stream is in a position to write a stream
-// content.
-func (aw *Writer) checkWrite() Error {
+// checkCanWriteContent returns nil if the stream is in a position to write a
+// stream content.
+func (aw *Writer) checkCanWriteContent() Error {
 	switch aw.stage {
 	case writeStageHeader:
 		return &UsageError{msg: "need to write header first"}
@@ -137,7 +137,7 @@ func (aw *Writer) checkFinished() Error {
 }
 
 func (aw *Writer) writePartial(section string, data []byte) Error {
-	if err := aw.checkWrite(); err != nil {
+	if err := aw.checkCanWriteContent(); err != nil {
 		return err
 	}
 
@@ -163,7 +163,7 @@ func (aw *Writer) writePartial(section string, data []byte) Error {
 // should be considered broken.
 // Calling after Close will return ErrWriteAfterClose
 func (aw *Writer) ReaderFrom(r io.Reader) (int64, Error) {
-	if err := aw.checkWrite(); err != nil {
+	if err := aw.checkCanWriteContent(); err != nil {
 		return -1, err
 	}
 
@@ -189,7 +189,7 @@ func (aw *Writer) ReaderFrom(r io.Reader) (int64, Error) {
 // still be valid.
 // Calling after Close will return ErrWriteAfterClose.
 func (aw *Writer) WriteBytes(data []byte) Error {
-	if err := aw.checkWrite(); err != nil {
+	if err := aw.checkCanWriteContent(); err != nil {
 		return err
 	}
 

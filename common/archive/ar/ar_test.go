@@ -42,6 +42,79 @@ var (
 		// Padding		- 1 byte
 		"\n" +
 		"")
+
+	TestFile2 = ("" +
+		// ar file header
+		"!<arch>\n" +
+
+		// File 1
+		// ----------------------
+		// filename len	- 16 bytes
+		"#1/5            " +
+		// modtime		- 12 bytes
+		"1447140471  " +
+		// owner id		- 6 bytes
+		"1000  " +
+		// group id		- 6 bytes
+		"1000  " +
+		// file mode	- 8 bytes
+		"100640  " +
+		// Data size	- 10 bytes
+		"13        " +
+		// File magic	- 2 bytes
+		"\x60\n" +
+		// File name	- 9 bytes
+		"file1" +
+		// File data	- 6 bytes
+		"contents" +
+		// Padding		- 1 byte
+		"\n" +
+
+		// File 2
+		// ----------------------
+		// filename len	- 16 bytes
+		"#1/7            " +
+		// modtime		- 12 bytes
+		"1447140471  " +
+		// owner id		- 6 bytes
+		"1000  " +
+		// group id		- 6 bytes
+		"1000  " +
+		// file mode	- 8 bytes
+		"100640  " +
+		// Data size	- 10 bytes
+		"10        " +
+		// File magic	- 2 bytes
+		"\x60\n" +
+		// File name	- 9 bytes
+		"fileabc" +
+		// File data	- 6 bytes
+		"123" +
+		// No padding	- 0 byte
+
+		// File 3
+		// ----------------------
+		// filename len	- 16 bytes
+		"#1/10           " +
+		// modtime		- 12 bytes
+		"1447140471  " +
+		// owner id		- 6 bytes
+		"1000  " +
+		// group id		- 6 bytes
+		"1000  " +
+		// file mode	- 8 bytes
+		"100640  " +
+		// Data size	- 10 bytes
+		"16        " +
+		// File magic	- 2 bytes
+		"\x60\n" +
+		// File name	- 9 bytes
+		"dir1/file1" +
+		// File data	- 6 bytes
+		"123abc" +
+		// No padding	- 0 byte
+		"")
+
 )
 
 func TestWriterCreatesTestFile1(t *testing.T) {
@@ -70,9 +143,9 @@ func TestReaderOnTestFile1(t *testing.T) {
 		t.Fatalf("NewReader: %v", err)
 	}
 
-	h, err := ar.Next()
-	if err != nil {
-		t.Fatalf("Header: %v", err)
+	h, herr := ar.Next()
+	if herr != nil {
+		t.Fatalf("Header: %v", herr)
 	}
 
 	ut.AssertEqual(t, time.Unix(1447140471, 0), h.ModTime())
@@ -81,18 +154,90 @@ func TestReaderOnTestFile1(t *testing.T) {
 	ut.AssertEqual(t, "filename1", h.Name())
 	ut.AssertEqual(t, int64(6), h.Size())
 
-	data := make([]byte, 6)
-	n, err := ar.Read(data)
-	if err != nil {
-		t.Fatalf("Data: %v", err)
+	data1 := make([]byte, 3)
+	data2 := make([]byte, 4)
+	n1, berr := ar.Body().Read(data1)
+	if berr != nil {
+		t.Fatalf("Data: %v", berr)
 	}
-	ut.AssertEqual(t, 6, n)
-	ut.AssertEqual(t, []byte("abc123"), data)
+	ut.AssertEqual(t, 3, n1)
+	n2, berr := ar.Body().Read(data2)
+	if berr != nil {
+		t.Fatalf("Data: %v", berr)
+	}
+	ut.AssertEqual(t, 3, n2)
+
+	ut.AssertEqual(t, []byte("abc"), data1)
+	ut.AssertEqual(t, []byte{'1', '2', '3', 0}, data2)
 
 	if err := ar.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 }
+
+func TestReaderOnTestFile2(t *testing.T) {
+	r := strings.NewReader(TestFile2)
+
+	ar, err := NewReader(r)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+
+	h1, herr := ar.Next()
+	if herr != nil {
+		t.Fatalf("Header: %v", herr)
+	}
+	ut.AssertEqual(t, time.Unix(1447140471, 0), h1.ModTime())
+	ut.AssertEqual(t, 1000, h1.UserId())
+	ut.AssertEqual(t, 1000, h1.GroupId())
+	ut.AssertEqual(t, "file1", h1.Name())
+	ut.AssertEqual(t, int64(8), h1.Size())
+
+	// Skipping the body of file 1
+
+	h2, herr := ar.Next()
+	if herr != nil {
+		t.Fatalf("Header: %v", herr)
+	}
+	ut.AssertEqual(t, time.Unix(1447140471, 0), h2.ModTime())
+	ut.AssertEqual(t, 1000, h2.UserId())
+	ut.AssertEqual(t, 1000, h2.GroupId())
+	ut.AssertEqual(t, "fileabc", h2.Name())
+	ut.AssertEqual(t, int64(3), h2.Size())
+
+	// Read only some of the body
+	data := make([]byte, 2)
+	n, berr := ar.Body().Read(data)
+	if berr != nil {
+		t.Fatalf("Data: %v", berr)
+	}
+	ut.AssertEqual(t, 2, n)
+	ut.AssertEqual(t, []byte("12"), data)
+
+	h3, herr := ar.Next()
+	if herr != nil {
+		t.Fatalf("Header: %v", herr)
+	}
+	ut.AssertEqual(t, time.Unix(1447140471, 0), h3.ModTime())
+	ut.AssertEqual(t, 1000, h3.UserId())
+	ut.AssertEqual(t, 1000, h3.GroupId())
+	ut.AssertEqual(t, "dir1/file1", h3.Name())
+	ut.AssertEqual(t, int64(6), h3.Size())
+
+	// Read the full file
+	data = make([]byte, 6)
+	n, berr = ar.Body().Read(data)
+	if berr != nil {
+		t.Fatalf("Data: %v", berr)
+	}
+	ut.AssertEqual(t, 6, n)
+	ut.AssertEqual(t, []byte("123abc"), data)
+
+	if err := ar.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
 
 func TestWithSystemArCommandList(t *testing.T) {
 	if _, err := exec.LookPath("ar"); err != nil {
