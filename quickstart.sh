@@ -16,6 +16,8 @@ if [ \$SOURCED = 0 ]; then
 	exec bash --init-file $PWD/enter-env.sh
 fi
 
+if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
+
 export GOROOT="$PWD/go"
 export GOPATH="$PWD/gocode"
 export DEPOT_TOOLS="$PWD/depot_tools"
