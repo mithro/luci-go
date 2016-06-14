@@ -98,7 +98,7 @@ func (ar *Reader) Close() Error {
 	return nil
 }
 
-func (ar *Reader) readHeaderBytes(section string, bytes int, formatstr string) (int64, Error) {
+func (ar *Reader) readHeaderInt64(section string, bytes int, formatstr string) (int64, Error) {
 	data := make([]byte, bytes)
 	if _, err := io.ReadFull(ar.r, data); err != nil {
 		return -1, &IOError{section: section, err: err}
@@ -136,41 +136,41 @@ func (ar *Reader) Next() (ArFileInfo, Error) {
 	var fi arFileInfoData
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
-	namelen, err := ar.readHeaderBytes("file header file path length", 16, "#1/%13d")
+	namelen, err := ar.readHeaderInt64("file header file path length", 16, "#1/%13d")
 	if err != nil {
 		return nil, err
 	}
 
 	// Modtime, 12 bytes
-	modtime, err := ar.readHeaderBytes("file modtime", 12, "%12d")
+	modtime, err := ar.readHeaderInt64("file modtime", 12, "%12d")
 	if err != nil {
 		return nil, err
 	}
 	fi.modtime = uint64(modtime)
 
 	// Owner ID, 6 bytes
-	ownerid, err := ar.readHeaderBytes("file header owner id", 6, "%6d")
+	ownerid, err := ar.readHeaderInt64("file header owner id", 6, "%6d")
 	if err != nil {
 		return nil, err
 	}
 	fi.uid = int(ownerid)
 
 	// Group ID, 6 bytes
-	groupid, err := ar.readHeaderBytes("file header group id", 6, "%6d")
+	groupid, err := ar.readHeaderInt64("file header group id", 6, "%6d")
 	if err != nil {
 		return nil, err
 	}
 	fi.gid = int(groupid)
 
 	// File mode, 8 bytes
-	filemod, err := ar.readHeaderBytes("file header file mode", 8, "%8o")
+	filemod, err := ar.readHeaderInt64("file header file mode", 8, "%8o")
 	if err != nil {
 		return nil, err
 	}
 	fi.mode = uint32(filemod)
 
 	// File size, 10 bytes
-	size, err := ar.readHeaderBytes("file header data size", 10, "%10d")
+	size, err := ar.readHeaderInt64("file header data size", 10, "%10d")
 	if err != nil {
 		return nil, err
 	}
