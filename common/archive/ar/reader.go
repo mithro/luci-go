@@ -30,32 +30,6 @@ func (e *ReadDataIOError) Error() string {
 	return fmt.Sprintf("archive/ar: io error %v (wanted '%s', got '%s') during %s -- *archive corrupted*", e.IOError.err, e.wanted, e.got, e.IOError.section)
 }
 
-// ReadTooLongFatalError indicates that the wrong amount of data *was* written into the archive.
-// ReadTooLongFatalError is always fatal.
-type ReadTooLongFatalError struct {
-	needed int64
-	got    int64
-}
-
-func (e *ReadTooLongFatalError) Error() string {
-	return fmt.Sprintf("archive/ar: *reader broken* -- invalid data read (needed %d, got %d)", e.needed, e.got)
-}
-func (e *ReadTooLongFatalError) Fatal() bool {
-	return true
-}
-
-type ReadTooLongError struct {
-	needed int64
-	got    int64
-}
-
-func (e *ReadTooLongError) Error() string {
-	return fmt.Sprintf("archive/ar: invalid data read (needed %d, got %d)", e.needed, e.got)
-}
-func (e *ReadTooLongError) Fatal() bool {
-	return false
-}
-
 type ArFileInfo interface {
 	os.FileInfo
 	UserId() int
