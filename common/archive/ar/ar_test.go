@@ -114,7 +114,6 @@ var (
 		"123abc" +
 		// No padding	- 0 byte
 		"")
-
 )
 
 func TestWriterCreatesTestFile1(t *testing.T) {
@@ -237,7 +236,6 @@ func TestReaderOnTestFile2(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 }
-
 
 func TestWithSystemArCommandList(t *testing.T) {
 	if _, err := exec.LookPath("ar"); err != nil {

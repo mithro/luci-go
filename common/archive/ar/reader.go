@@ -87,11 +87,10 @@ func (fi *arFileInfoData) GroupId() int { return fi.gid }
 
 type readerStage uint
 
-
 type Reader struct {
-	r                   io.Reader
-	bodyReader	io.LimitedReader
-	bodyHasPadding      bool
+	r              io.Reader
+	bodyReader     io.LimitedReader
+	bodyHasPadding bool
 }
 
 func NewReader(r io.Reader) (*Reader, Error) {
@@ -132,7 +131,7 @@ func (ar *Reader) readHeaderBytes(section string, bytes int, formatstr string) (
 
 	var output int64
 	if _, err := fmt.Sscanf(string(data), formatstr, &output); err != nil {
-		return -1, &ReadDataIOError{IOError: IOError{section: section, err:err}, wanted: []byte(formatstr), got: data}
+		return -1, &ReadDataIOError{IOError: IOError{section: section, err: err}, wanted: []byte(formatstr), got: data}
 	}
 
 	if output <= 0 {
@@ -146,7 +145,7 @@ func (ar *Reader) Next() (ArFileInfo, Error) {
 		return nil, &ErrReadAfterClose
 	}
 
-	if (ar.bodyReader.N > 0) {
+	if ar.bodyReader.N > 0 {
 		// Read any remains of the previous file
 		io.Copy(ioutil.Discard, &ar.bodyReader)
 
@@ -207,7 +206,7 @@ func (ar *Reader) Next() (ArFileInfo, Error) {
 		return nil, err
 	}
 
-	ar.bodyReader = io.LimitedReader{R: ar.r, N:size}
+	ar.bodyReader = io.LimitedReader{R: ar.r, N: size}
 	ar.bodyHasPadding = (size%2 != 0)
 
 	// Filename - BSD variant
