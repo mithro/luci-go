@@ -69,7 +69,7 @@ type Writer struct {
 
 func NewWriter(w io.Writer) (*Writer, Error) {
 	if _, err := io.WriteString(w, "!<arch>\n"); err != nil {
-		return nil, &IOError{filesection: "archive header", err: err}
+		return nil, &IOError{section: "archive header", err: err}
 	}
 	return &Writer{w: w, stage: writeStageHeader}, nil
 }
@@ -103,7 +103,7 @@ func (aw *Writer) wroteBytes(numbytes int64) Error {
 	// Padding to 16bit boundary
 	if aw.bodyNeedsPadding {
 		if _, err := io.WriteString(aw.w, "\n"); err != nil {
-			return &IOError{filesection: "body padding", err: err}
+			return &IOError{section: "body padding", err: err}
 		}
 		aw.bodyNeedsPadding = false
 	}
@@ -136,7 +136,7 @@ func (aw *Writer) checkFinished() Error {
 	return nil
 }
 
-func (aw *Writer) writePartial(filesection string, data []byte) Error {
+func (aw *Writer) writePartial(section string, data []byte) Error {
 	if err := aw.checkWrite(); err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (aw *Writer) writePartial(filesection string, data []byte) Error {
 	}
 
 	if _, err := aw.w.Write(data); err != nil {
-		return &IOError{filesection: filesection, err: err}
+		return &IOError{section: section, err: err}
 	}
 	if err := aw.wroteBytes(datalen); err != nil {
 		return err
@@ -169,7 +169,7 @@ func (aw *Writer) ReaderFrom(r io.Reader) (int64, Error) {
 
 	count, err := io.Copy(aw.w, r)
 	if err != nil {
-		return -1, &IOError{filesection: "body file contents", err: err}
+		return -1, &IOError{section: "body file contents", err: err}
 	}
 	if err := aw.wroteBytes(count); err != nil {
 		return -1, err
@@ -220,27 +220,27 @@ func (aw *Writer) writeHeaderInternal(filepath string, size int64, modtime uint6
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
 	if _, err := fmt.Fprintf(aw.w, "#1/%-13d", len(filepath)); err != nil {
-		return &IOError{filesection: "file header filepath length", err: err}
+		return &IOError{section: "file header filepath length", err: err}
 	}
 
 	// Modtime, 12 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-12d", modtime); err != nil {
-		return &IOError{filesection: "file header modtime", err: err}
+		return &IOError{section: "file header modtime", err: err}
 	}
 
 	// Owner ID, 6 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-6d", ownerid); err != nil {
-		return &IOError{filesection: "file header owner id", err: err}
+		return &IOError{section: "file header owner id", err: err}
 	}
 
 	// Group ID, 6 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-6d", groupid); err != nil {
-		return &IOError{filesection: "file header group id", err: err}
+		return &IOError{section: "file header group id", err: err}
 	}
 
 	// File mode, 8 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-8o", filemod); err != nil {
-		return &IOError{filesection: "file header file mode", err: err}
+		return &IOError{section: "file header file mode", err: err}
 	}
 
 	// In BSD variant, file size includes the filepath length
@@ -248,12 +248,12 @@ func (aw *Writer) writeHeaderInternal(filepath string, size int64, modtime uint6
 
 	// File size, 10 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-10d", aw.streamSizeNeeded); err != nil {
-		return &IOError{filesection: "file header file size", err: err}
+		return &IOError{section: "file header file size", err: err}
 	}
 
 	// File magic, 2 bytes
 	if _, err := io.WriteString(aw.w, "\x60\n"); err != nil {
-		return &IOError{filesection: "file header file magic", err: err}
+		return &IOError{section: "file header file magic", err: err}
 	}
 
 	aw.stage = writeStageBody

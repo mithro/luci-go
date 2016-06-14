@@ -27,7 +27,7 @@ type ReadConstantIOError struct {
 }
 
 func (e *ReadConstantIOError) Error() string {
-	return fmt.Sprintf("archive/ar: io error (wanted %v, got %v) during %s -- *archive corrupted*", e.wanted, e.got, e.IOError.filesection)
+	return fmt.Sprintf("archive/ar: io error (wanted %v, got %v) during %s -- *archive corrupted*", e.wanted, e.got, e.IOError.section)
 }
 
 type ReadDataIOError struct {
@@ -36,7 +36,7 @@ type ReadDataIOError struct {
 }
 
 func (e *ReadDataIOError) Error() string {
-	return fmt.Sprintf("archive/ar: io error (got %v) during %s -- *archive corrupted*", e.data, e.IOError.filesection)
+	return fmt.Sprintf("archive/ar: io error (got %v) during %s -- *archive corrupted*", e.data, e.IOError.section)
 }
 
 // ReadTooLongFatalError indicates that the wrong amount of data *was* written into the archive.
@@ -117,15 +117,15 @@ func NewReader(r io.Reader) (*Reader, Error) {
 	return &reader, nil
 }
 
-func (ar *Reader) checkBytes(filesection string, str []byte) Error {
+func (ar *Reader) checkBytes(section string, str []byte) Error {
 	buffer := make([]byte, len(str))
 
 	if _, err := io.ReadFull(ar.r, buffer); err != nil {
-		return &IOError{filesection: filesection, err: err}
+		return &IOError{section: section, err: err}
 	}
 
 	if !bytes.Equal(str, buffer) {
-		return &ReadConstantIOError{IOError: IOError{filesection: filesection}, wanted: str, got: buffer}
+		return &ReadConstantIOError{IOError: IOError{section: section}, wanted: str, got: buffer}
 	}
 
 	return nil
@@ -173,7 +173,7 @@ func (ar *Reader) checkFinished() Error {
 	return nil
 }
 
-func (ar *Reader) readPartial(filesection string, data []byte) Error {
+func (ar *Reader) readPartial(section string, data []byte) Error {
 	// Check you can read bytes from the ar at this moment.
 	switch ar.stage {
 	case readStageHeader:
@@ -192,24 +192,24 @@ func (ar *Reader) readPartial(filesection string, data []byte) Error {
 
 	count, err := io.ReadFull(ar.r, data)
 	if err != nil {
-		return &IOError{filesection: filesection, err: err}
+		return &IOError{section: section, err: err}
 	}
 	return ar.completeReadBytes(int64(count))
 }
 
-func (ar *Reader) readHeaderBytes(filesection string, bytes int, formatstr string) (int64, Error) {
+func (ar *Reader) readHeaderBytes(section string, bytes int, formatstr string) (int64, Error) {
 	data := make([]byte, bytes)
 	if _, err := io.ReadFull(ar.r, data); err != nil {
-		return -1, &IOError{filesection: filesection, err: err}
+		return -1, &IOError{section: section, err: err}
 	}
 
 	var output int64
 	if _, err := fmt.Sscanf(string(data), formatstr, &output); err != nil {
-		return -1, &IOError{filesection: filesection, err: err}
+		return -1, &IOError{section: section, err: err}
 	}
 
 	if output <= 0 {
-		return -1, &ReadDataIOError{IOError: IOError{filesection: filesection}, data: output}
+		return -1, &ReadDataIOError{IOError: IOError{section: section}, data: output}
 	}
 	return output, nil
 }

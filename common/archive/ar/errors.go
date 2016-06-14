@@ -31,12 +31,12 @@ func (e *UsageError) Fatal() bool {
 // IOError indicates an error occurred during IO operations.
 // IOError is always fatal.
 type IOError struct {
-	filesection string
-	err         error
+	section string
+	err     error
 }
 
 func (e *IOError) Error() string {
-	return fmt.Sprintf("archive/ar: io error (%s) during %s -- *archive corrupted*", e.err.Error(), e.filesection)
+	return fmt.Sprintf("archive/ar: io error (%s) during %s -- *archive corrupted*", e.err.Error(), e.section)
 }
 
 func (e *IOError) Fatal() bool {
