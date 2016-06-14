@@ -11,7 +11,7 @@ Installing
     go get -u github.com/luci/luci-go/client/cmd/...
     go get -u github.com/luci/luci-go/server/cmd/...
 
-There is a [`quicksetup.sh`](quicksetup.sh) script which can be used to get all
+There is a [`quickstart.sh`](quickstart.sh) script which can be used to get all
 the needed dependencies.
 
 
