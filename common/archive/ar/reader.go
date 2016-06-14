@@ -27,7 +27,7 @@ type ReadDataIOError struct {
 }
 
 func (e *ReadDataIOError) Error() string {
-	return fmt.Sprintf("archive/ar: io error %v (wanted '%s', got '%s') during %s -- *archive corrupted*", e.IOError.err, e.wanted, e.got, e.IOError.section)
+	return fmt.Sprintf("%s (wanted '%s', got '%s') during %s -- *archive corrupted*", e.IOError.Error(), e.wanted, e.got)
 }
 
 type ArFileInfo interface {
@@ -94,6 +94,7 @@ func (ar *Reader) Close() Error {
 		return &ErrReadAfterClose
 	}
 	ar.r = nil
+	ar.bodyReader.R = nil
 	return nil
 }
 
