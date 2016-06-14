@@ -21,7 +21,7 @@ if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
 export GOROOT="$PWD/go"
 export GOPATH="$PWD/gocode"
 export DEPOT_TOOLS="$PWD/depot_tools"
-export PATH="\$GOROOT/bin:\$GOPATH/bin:\$DEPOT_TOOLS/bin:\$PATH"
+export PATH="\$GOROOT/bin:\$GOPATH/bin:\$DEPOT_TOOLS:\$PATH"
 export PS1="[luci-go] \$PS1"
 echo "Entered luci-go setup at '$PWD'"
 cd "$PWD/gocode/src/github.com/luci/luci-go"
