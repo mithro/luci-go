@@ -57,8 +57,7 @@ echo
 
 # Download the actual luci-go code
 echo "Getting luci-go code.."
-mkdir -p $GOPATH/src/github.com/luci/luci-go
-#go get -v -u github.com/luci/luci-go/...
+go get -v -u github.com/luci/luci-go/...
 echo
 
 # Output usage instructions
