@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+var (
+    ErrHeader = errors.New("archive/tar: invalid tar header")
+)
+
 type ArFileInfo interface {
 	os.FileInfo
 	UserId() int
@@ -56,14 +60,13 @@ const (
 type Reader struct {
 	stage         readerStage
 	r             io.Reader
-	bytesrequired int64
+	streamSizeRemaining int64
 	needspadding  bool
 }
 
 func NewReader(r io.Reader) (*Reader, error) {
 	reader := Reader{r: r, stage: READ_HEADER}
-	err := reader.checkBytes("header", []byte("!<arch>\n"))
-	if err != nil {
+	if err := reader.checkBytes("header", []byte("!<arch>\n")); err != nil {
 		return nil, err
 	}
 	return &reader, nil
@@ -72,16 +75,15 @@ func NewReader(r io.Reader) (*Reader, error) {
 func (ar *Reader) checkBytes(name string, str []byte) error {
 	buffer := make([]byte, len(str))
 
-	_, err := io.ReadFull(ar.r, buffer)
-	if err != nil {
+	if _, err := io.ReadFull(ar.r, buffer); err != nil {
 		return fmt.Errorf("%s: error in reading bytes (%v)", name, err)
 	}
 
-	if bytes.Equal(str, buffer) {
-		return nil
-	} else {
+	if !bytes.Equal(str, buffer) {
 		return fmt.Errorf("%s: error in bytes (wanted: %v got: %v)", name, buffer, str)
 	}
+
+	return nil
 }
 
 func (ar *Reader) Close() error {
@@ -101,19 +103,18 @@ func (ar *Reader) Close() error {
 }
 
 func (ar *Reader) completeReadBytes(numbytes int64) error {
-	if numbytes > ar.bytesrequired {
-		return fmt.Errorf("to much data read, needed %d, got %d", ar.bytesrequired, numbytes)
+	if numbytes > ar.streamSizeRemaining {
+		return fmt.Errorf("to much data read, needed %d, got %d", ar.streamSizeRemaining, numbytes)
 	}
 
-	ar.bytesrequired -= numbytes
-	if ar.bytesrequired != 0 {
+	ar.streamSizeRemaining -= numbytes
+	if ar.streamSizeRemaining != 0 {
 		return nil
 	}
 
 	// Padding to 16bit boundary
 	if ar.needspadding {
-		err := ar.checkBytes("padding", []byte("\n"))
-		if err != nil {
+		if err := ar.checkBytes("padding", []byte{"\n"}); err != nil {
 			return err
 		}
 		ar.needspadding = false
@@ -122,10 +123,10 @@ func (ar *Reader) completeReadBytes(numbytes int64) error {
 	return nil
 }
 
-// Check we have finished writing bytes
+// Check we have finished reading bytes
 func (ar *Reader) checkFinished() error {
-	if ar.bytesrequired != 0 {
-		return fmt.Errorf("didn't read enough %d bytes still needed", ar.bytesrequired)
+	if ar.streamSizeRemaining != 0 {
+		return fmt.Errorf("didn't read enough %d bytes still needed", ar.streamSizeRemaining)
 	}
 	return nil
 }
@@ -143,9 +144,8 @@ func (ar *Reader) readPartial(name string, data []byte) error {
 		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
 
-	datalen := int64(len(data))
-	if datalen > ar.bytesrequired {
-		return fmt.Errorf("to much data, wanted %d, but had %d", ar.bytesrequired, datalen)
+	if datalen := int64(len(data)); datalen > ar.streamSizeRemaining {
+		return fmt.Errorf("to much data, wanted %d, but had %d", ar.streamSizeRemaining, datalen)
 	}
 
 	count, err := io.ReadFull(ar.r, data)
@@ -158,14 +158,12 @@ func (ar *Reader) readPartial(name string, data []byte) error {
 
 func (ar *Reader) readHeaderBytes(name string, bytes int, formatstr string) (int64, error) {
 	data := make([]byte, bytes)
-	_, err := io.ReadFull(ar.r, data)
-	if err != nil {
+	if _, err := io.ReadFull(ar.r, data); err != nil {
 		return -1, err
 	}
 
-	var output int64 = 0
-	_, err = fmt.Sscanf(string(data), formatstr, &output)
-	if err != nil {
+	var output int64
+	if _, err = fmt.Sscanf(string(data), formatstr, &output); err != nil {
 		return -1, err
 	}
 
@@ -231,19 +229,17 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	fi.size = size - namelen
 
 	// File magic, 2 bytes
-	err = ar.checkBytes("filemagic", []byte("\x60\n"))
-	if err != nil {
+	if err = ar.checkBytes("filemagic", []byte{"\x60", "\n"}); err != nil {
 		return nil, err
 	}
 
 	ar.stage = READ_BODY
-	ar.bytesrequired = size
-	ar.needspadding = (ar.bytesrequired%2 != 0)
+	ar.streamSizeRemaining = size
+	ar.needspadding = (ar.streamSizeRemaining%2 != 0)
 
 	// Filename - BSD variant
 	filename := make([]byte, namelen)
-	err = ar.readPartial("filename", filename)
-	if err != nil {
+	if err = ar.readPartial("filename", filename); err != nil {
 		return nil, err
 	}
 	fi.name = string(filename)
@@ -251,13 +247,11 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	return &fi, nil
 }
 
-func (ar *Reader) Read(b []byte) (n int, err error) {
-	err = ar.readPartial("data", b)
-	if err != nil {
+func (ar *Reader) Read(b []byte) (int, error) {
+	if err = ar.readPartial("data", b); err != nil {
 		return -1, err
 	}
-	err = ar.checkFinished()
-	if err != nil {
+	if err = ar.checkFinished(); err != nil {
 		return -1, err
 	}
 	return len(b), nil
