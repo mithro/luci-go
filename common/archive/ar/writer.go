@@ -117,8 +117,8 @@ func (aw *Writer) checkCanWriteContent() Error {
 	switch aw.stage {
 	case writeStageHeader:
 		return &UsageError{msg: "need to write header first"}
-		// Good
 	case writeStageBody:
+		// Good
 		return nil
 	case writeStageClosed:
 		return &ErrWriteAfterClose
