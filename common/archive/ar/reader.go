@@ -8,7 +8,6 @@ package ar
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,9 +15,55 @@ import (
 	"time"
 )
 
+// Special UsageError that indicates trying to read after closing.
 var (
-	ErrHeader = errors.New("archive/tar: invalid tar header")
+	ErrReadAfterClose = UsageError{msg: "read after file closed"}
 )
+
+type ReadConstantIOError struct {
+	IOError
+	wanted []byte
+	got []byte
+}
+
+func (e *ReadConstantIOError) Error() string {
+	return fmt.Sprintf("archive/ar: io error (wanted %v, got %v) during %s -- *archive corrupted*", e.wanted, e.got, e.IOError.filesection)
+}
+
+type ReadDataIOError struct {
+	IOError
+	data interface{}
+}
+
+func (e *ReadDataIOError) Error() string {
+	return fmt.Sprintf("archive/ar: io error (got %v) during %s -- *archive corrupted*", e.data, e.IOError.filesection)
+}
+
+// ReadTooLongFatalError indicates that the wrong amount of data *was* written into the archive.
+// ReadTooLongFatalError is always fatal.
+type ReadTooLongFatalError struct {
+	needed int64
+	got    int64
+}
+
+func (e *ReadTooLongFatalError) Error() string {
+	return fmt.Sprintf("archive/ar: *reader broken* -- invalid data read (needed %d, got %d)", e.needed, e.got)
+}
+func (e *ReadTooLongFatalError) Fatal() bool {
+	return true
+}
+
+type ReadTooLongError struct {
+	needed int64
+	got    int64
+}
+
+func (e *ReadTooLongError) Error() string {
+	return fmt.Sprintf("archive/ar: invalid data read (needed %d, got %d)", e.needed, e.got)
+}
+func (e *ReadTooLongError) Fatal() bool {
+	return false
+}
 
 type ArFileInfo interface {
 	os.FileInfo
@@ -52,59 +97,59 @@ func (fi *arFileInfoData) GroupId() int { return fi.gid }
 type readerStage uint
 
 const (
-	READ_HEADER readerStage = iota
-	READ_BODY
-	READ_CLOSED
+	readStageHeader readerStage = iota
+	readStageBody
+	readStageClosed
 )
 
 type Reader struct {
 	stage               readerStage
 	r                   io.Reader
 	streamSizeRemaining int64
-	needspadding        bool
+	bodyHasPadding        bool
 }
 
-func NewReader(r io.Reader) (*Reader, error) {
-	reader := Reader{r: r, stage: READ_HEADER}
+func NewReader(r io.Reader) (*Reader, Error) {
+	reader := Reader{r: r, stage: readStageHeader}
 	if err := reader.checkBytes("header", []byte("!<arch>\n")); err != nil {
 		return nil, err
 	}
 	return &reader, nil
 }
 
-func (ar *Reader) checkBytes(name string, str []byte) error {
+func (ar *Reader) checkBytes(filesection string, str []byte) Error {
 	buffer := make([]byte, len(str))
 
 	if _, err := io.ReadFull(ar.r, buffer); err != nil {
-		return fmt.Errorf("%s: error in reading bytes (%v)", name, err)
+		return &IOError{filesection: filesection, err:err}
 	}
 
 	if !bytes.Equal(str, buffer) {
-		return fmt.Errorf("%s: error in bytes (wanted: %v got: %v)", name, buffer, str)
+		return &ReadConstantIOError{IOError: IOError{filesection: filesection}, wanted: str, got: buffer}
 	}
 
 	return nil
 }
 
-func (ar *Reader) Close() error {
+func (ar *Reader) Close() Error {
 	switch ar.stage {
-	case READ_HEADER:
+	case readStageHeader:
 		// Good
-	case READ_BODY:
-		return errors.New("usage error, reading a file.")
-	case READ_CLOSED:
-		return errors.New("usage error, archive already closed.")
+	case readStageBody:
+		return &UsageError{msg: "currently reading file body"}
+	case readStageClosed:
+		return &ErrReadAfterClose
 	default:
 		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
-	ar.stage = READ_CLOSED
+	ar.stage = readStageClosed
 	ar.r = nil
 	return nil
 }
 
-func (ar *Reader) completeReadBytes(numbytes int64) error {
+func (ar *Reader) completeReadBytes(numbytes int64) Error {
 	if numbytes > ar.streamSizeRemaining {
-		return fmt.Errorf("to much data read, needed %d, got %d", ar.streamSizeRemaining, numbytes)
+		return &ReadTooLongFatalError{needed: ar.streamSizeRemaining, got: numbytes}
 	}
 
 	ar.streamSizeRemaining -= numbytes
@@ -113,74 +158,70 @@ func (ar *Reader) completeReadBytes(numbytes int64) error {
 	}
 
 	// Padding to 16bit boundary
-	if ar.needspadding {
-		if err := ar.checkBytes("padding", []byte{'\n'}); err != nil {
+	if ar.bodyHasPadding {
+		if err := ar.checkBytes("body padding", []byte{'\n'}); err != nil {
 			return err
 		}
-		ar.needspadding = false
+		ar.bodyHasPadding = false
 	}
-	ar.stage = READ_HEADER
+	ar.stage = readStageHeader
 	return nil
 }
 
 // Check we have finished reading bytes
-func (ar *Reader) checkFinished() error {
-	if ar.streamSizeRemaining != 0 {
-		return fmt.Errorf("didn't read enough %d bytes still needed", ar.streamSizeRemaining)
-	}
+func (ar *Reader) checkFinished() Error {
 	return nil
 }
 
-func (ar *Reader) readPartial(name string, data []byte) error {
+func (ar *Reader) readPartial(filesection string, data []byte) Error {
 	// Check you can read bytes from the ar at this moment.
 	switch ar.stage {
-	case READ_HEADER:
-		return errors.New("usage error, need to read header first")
-	case READ_BODY:
+	case readStageHeader:
+		return &UsageError{msg: "need to read header first"}
+	case readStageBody:
 		// Good
-	case READ_CLOSED:
-		return errors.New("usage error, archive closed")
+	case readStageClosed:
+		return &ErrReadAfterClose
 	default:
 		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
 
 	if datalen := int64(len(data)); datalen > ar.streamSizeRemaining {
-		return fmt.Errorf("to much data, wanted %d, but had %d", ar.streamSizeRemaining, datalen)
+		return &ReadTooLongError{needed: ar.streamSizeRemaining, got: datalen}
 	}
 
 	count, err := io.ReadFull(ar.r, data)
 	if err != nil {
-		return err
+		return &IOError{filesection: filesection, err: err}
 	}
-	ar.completeReadBytes(int64(count))
-	return nil
+	return ar.completeReadBytes(int64(count))
 }
 
-func (ar *Reader) readHeaderBytes(name string, bytes int, formatstr string) (int64, error) {
+func (ar *Reader) readHeaderBytes(filesection string, bytes int, formatstr string) (int64, Error) {
 	data := make([]byte, bytes)
 	if _, err := io.ReadFull(ar.r, data); err != nil {
-		return -1, err
+		return -1, &IOError{filesection: filesection, err: err}
 	}
 
 	var output int64
 	if _, err := fmt.Sscanf(string(data), formatstr, &output); err != nil {
-		return -1, err
+		return -1, &IOError{filesection: filesection, err: err}
 	}
 
 	if output <= 0 {
-		return -1, fmt.Errorf("%s: bad value %d", name, output)
+		return -1, &ReadDataIOError{IOError: IOError{filesection: filesection}, data: output}
 	}
 	return output, nil
 }
 
-func (ar *Reader) readHeader() (*arFileInfoData, error) {
+func (ar *Reader) readHeader() (*arFileInfoData, Error) {
 	switch ar.stage {
-	case READ_HEADER:
+	case readStageHeader:
 		// Good
-	case READ_BODY:
-		return nil, errors.New("usage error, already writing a file")
-	case READ_CLOSED:
-		return nil, errors.New("usage error, archive closed")
+	case readStageBody:
+		return nil, &UsageError{msg:"currently writing a file"}
+	case readStageClosed:
+		return nil, &ErrReadAfterClose
 	default:
 		log.Fatalf("unknown reader mode: %d", ar.stage)
 	}
@@ -188,58 +229,58 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	var fi arFileInfoData
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
-	namelen, err := ar.readHeaderBytes("filename length", 16, "#1/%13d")
+	namelen, err := ar.readHeaderBytes("file header filename length", 16, "#1/%13d")
 	if err != nil {
 		return nil, err
 	}
 
 	// Modtime, 12 bytes
-	modtime, err := ar.readHeaderBytes("modtime", 12, "%12d")
+	modtime, err := ar.readHeaderBytes("file modtime", 12, "%12d")
 	if err != nil {
 		return nil, err
 	}
 	fi.modtime = uint64(modtime)
 
 	// Owner ID, 6 bytes
-	ownerid, err := ar.readHeaderBytes("ownerid", 6, "%6d")
+	ownerid, err := ar.readHeaderBytes("file header owner id", 6, "%6d")
 	if err != nil {
 		return nil, err
 	}
 	fi.uid = int(ownerid)
 
 	// Group ID, 6 bytes
-	groupid, err := ar.readHeaderBytes("groupid", 6, "%6d")
+	groupid, err := ar.readHeaderBytes("file header group id", 6, "%6d")
 	if err != nil {
 		return nil, err
 	}
 	fi.gid = int(groupid)
 
 	// File mode, 8 bytes
-	filemod, err := ar.readHeaderBytes("filemod", 8, "%8o")
+	filemod, err := ar.readHeaderBytes("file header file mode", 8, "%8o")
 	if err != nil {
 		return nil, err
 	}
 	fi.mode = uint32(filemod)
 
 	// File size, 10 bytes
-	size, err := ar.readHeaderBytes("datasize", 10, "%10d")
+	size, err := ar.readHeaderBytes("file header data size", 10, "%10d")
 	if err != nil {
 		return nil, err
 	}
 	fi.size = size - namelen
 
 	// File magic, 2 bytes
-	if err = ar.checkBytes("filemagic", []byte{'\x60', '\n'}); err != nil {
+	if err = ar.checkBytes("file header file magic", []byte{'\x60', '\n'}); err != nil {
 		return nil, err
 	}
 
-	ar.stage = READ_BODY
+	ar.stage = readStageBody
 	ar.streamSizeRemaining = size
-	ar.needspadding = (ar.streamSizeRemaining%2 != 0)
+	ar.bodyHasPadding = (ar.streamSizeRemaining%2 != 0)
 
 	// Filename - BSD variant
 	filename := make([]byte, namelen)
-	if err = ar.readPartial("filename", filename); err != nil {
+	if err = ar.readPartial("body filename", filename); err != nil {
 		return nil, err
 	}
 	fi.name = string(filename)
@@ -247,16 +288,13 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	return &fi, nil
 }
 
-func (ar *Reader) Read(b []byte) (int, error) {
-	if err := ar.readPartial("data", b); err != nil {
-		return -1, err
-	}
-	if err := ar.checkFinished(); err != nil {
+func (ar *Reader) Read(b []byte) (int, Error) {
+	if err := ar.readPartial("body contents", b); err != nil {
 		return -1, err
 	}
 	return len(b), nil
 }
 
-func (ar *Reader) Next() (ArFileInfo, error) {
+func (ar *Reader) Next() (ArFileInfo, Error) {
 	return ar.readHeader()
 }
