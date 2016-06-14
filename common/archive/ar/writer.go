@@ -15,12 +15,13 @@ import (
 
 type Error interface {
 	error
-	Fatal() bool	// Is the error fatal and the archive is now corrupted?
+	Fatal() bool // Is the error fatal and the archive is now corrupted?
 }
 
 type ErrWriteUsage struct {
 	msg string
 }
+
 func (e *ErrWriteUsage) Error() string {
 	return fmt.Sprintf("archive/ar: usage error, %s", e.msg)
 }
@@ -33,6 +34,7 @@ func (e *ErrWriteUsage) Fatal() bool {
 type ErrWriteIOError struct {
 	err error
 }
+
 func (e *ErrWriteIOError) Error() string {
 	return fmt.Sprintf("archive/ar: *archive corrupted* -- invalid data written (%s)", e.err.Error())
 }
@@ -50,8 +52,9 @@ type ErrWriteAfterClose struct {
 // ErrWriteIOError is never fatal.
 type ErrWriteToLong struct {
 	needed int64
-	got int64
+	got    int64
 }
+
 func (e *ErrWriteToLong) Error() string {
 	return fmt.Sprintf("archive/ar: invalid data length (needed %d, got %d)", e.needed, e.got)
 }
@@ -63,8 +66,9 @@ func (e *ErrWriteToLong) Fatal() bool {
 // ErrWriteIOError is always fatal.
 type ErrWriteToLongFatal struct {
 	needed int64
-	got int64
+	got    int64
 }
+
 func (e *ErrWriteToLongFatal) Error() string {
 	return fmt.Sprintf("archive/ar: *archive corrupted* -- invalid data written (needed %d, got %d)", e.needed, e.got)
 }
@@ -181,7 +185,7 @@ func (aw *Writer) writePartial(data []byte) Error {
 	return nil
 }
 
-// ReaderFrom writes all the data from r (till EOF) into the archive. 
+// ReaderFrom writes all the data from r (till EOF) into the archive.
 // The size of data should match the value given previously to WriteHeader*
 // functions.
 // ReaderFrom returns the number of bytes written on success.
@@ -290,7 +294,7 @@ func (aw *Writer) writeHeaderInternal(name string, size int64, modtime uint64, o
 }
 
 // WriteHeaderDefault writes header information about a file to the archive
-// using default values for everything apart from name and size. 
+// using default values for everything apart from name and size.
 // WriteBytes or ReaderFrom should be called after writing the header.
 // Calling at the wrong time will return a ErrWriteUsage.
 func (aw *Writer) WriteHeaderDefault(name string, size int64) Error {
