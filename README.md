@@ -17,7 +17,7 @@ the needed dependencies.
 
  You can use it like;
 
-    wget -O- https://raw.githubusercontent.com/luci/luci-go/master/quicksetup.sh | bash
+    wget -O- https://raw.githubusercontent.com/luci/luci-go/master/quickstart.sh | bash
 
 
 Code layout
