@@ -7,7 +7,6 @@
 package ar
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -32,10 +31,10 @@ func (e *ErrWriteUsage) Fatal() bool {
 // ErrWriteIOError indicates an error occurred during IO operations.
 // ErrWriteIOError is always fatal.
 type ErrWriteIOError struct {
-	err Error
+	err error
 }
 func (e *ErrWriteIOError) Error() string {
-	return fmt.Sprintf("archive/ar: *archive corrupted* -- invalid data written (%s)", e.err.String())
+	return fmt.Sprintf("archive/ar: *archive corrupted* -- invalid data written (%s)", e.err.Error())
 }
 func (e *ErrWriteIOError) Fatal() bool {
 	return true
@@ -50,11 +49,11 @@ type ErrWriteAfterClose struct {
 // ErrWriteToLong indicates trying to write the wrong amount of data into the archive.
 // ErrWriteIOError is never fatal.
 type ErrWriteToLong struct {
-	needed int64,
-	got int64,
+	needed int64
+	got int64
 }
 func (e *ErrWriteToLong) Error() string {
-	return fmt.Sprintf("archive/ar: invalid data length (needed %d, got %d)", e.requested, e.got)
+	return fmt.Sprintf("archive/ar: invalid data length (needed %d, got %d)", e.needed, e.got)
 }
 func (e *ErrWriteToLong) Fatal() bool {
 	return false
@@ -63,11 +62,11 @@ func (e *ErrWriteToLong) Fatal() bool {
 // ErrWriteToLongFatal indicates that the wrong amount of data *was* written into the archive.
 // ErrWriteIOError is always fatal.
 type ErrWriteToLongFatal struct {
-	needed int64,
-	got int64,
+	needed int64
+	got int64
 }
 func (e *ErrWriteToLongFatal) Error() string {
-	return fmt.Sprintf("archive/ar: *archive corrupted* -- invalid data written (needed %d, got %d)", e.requested, e.got)
+	return fmt.Sprintf("archive/ar: *archive corrupted* -- invalid data written (needed %d, got %d)", e.needed, e.got)
 }
 func (e *ErrWriteToLongFatal) Fatal() bool {
 	return true
@@ -94,9 +93,9 @@ type Writer struct {
 	needspadding  bool
 }
 
-func NewWriter(w io.Writer) *Writer, Error {
-	if err := io.WriteString(w, "!<arch>\n"); err != nil {
-		return nil, ErrWriteIOError{err: err}
+func NewWriter(w io.Writer) (*Writer, Error) {
+	if _, err := io.WriteString(w, "!<arch>\n"); err != nil {
+		return nil, &ErrWriteIOError{err: err}
 	}
 	return &Writer{w: w, stage: writeStageHeader}, nil
 }
@@ -106,9 +105,9 @@ func (aw *Writer) Close() Error {
 	case writeStageHeader:
 		// Good
 	case writeStageBody:
-		return ErrWriteUsage{msg: "currently writing a file"}
+		return &ErrWriteUsage{msg: "currently writing a file"}
 	case writeStageClosed:
-		return ErrWriteAfterClose{}
+		return &ErrWriteAfterClose{}
 	default:
 		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
@@ -119,7 +118,7 @@ func (aw *Writer) Close() Error {
 
 func (aw *Writer) wroteBytes(numbytes int64) Error {
 	if numbytes > aw.bytesrequired {
-		return ErrWriteToLongFatal{aw.bytesrequired, numbytes}
+		return &ErrWriteToLongFatal{aw.bytesrequired, numbytes}
 	}
 
 	aw.bytesrequired -= numbytes
@@ -130,7 +129,7 @@ func (aw *Writer) wroteBytes(numbytes int64) Error {
 	// Padding to 16bit boundary
 	if aw.needspadding {
 		if _, err := io.WriteString(aw.w, "\n"); err != nil {
-			return ErrWriteIOError{err: err}
+			return &ErrWriteIOError{err: err}
 		}
 		aw.needspadding = false
 	}
@@ -143,12 +142,12 @@ func (aw *Writer) wroteBytes(numbytes int64) Error {
 func (aw *Writer) checkWrite() Error {
 	switch aw.stage {
 	case writeStageHeader:
-		return ErrWriteUsage{msg: "need to write header first"}
+		return &ErrWriteUsage{msg: "need to write header first"}
 		// Good
 	case writeStageBody:
 		return nil
 	case writeStageClosed:
-		return ErrWriteAfterClose{}
+		return &ErrWriteAfterClose{}
 	default:
 		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
@@ -158,8 +157,9 @@ func (aw *Writer) checkWrite() Error {
 // Check we have finished writing bytes
 func (aw *Writer) checkFinished() Error {
 	if aw.bytesrequired != 0 {
-		return ErrWriteToLongFatal{aw.bytesrequired, -1}
+		return &ErrWriteToLongFatal{aw.bytesrequired, -1}
 	}
+	return nil
 }
 
 func (aw *Writer) writePartial(data []byte) Error {
@@ -169,18 +169,17 @@ func (aw *Writer) writePartial(data []byte) Error {
 
 	datalen := int64(len(data))
 	if datalen > aw.bytesrequired {
-		return ErrWriteToLong{aw.bytesrequired, datalen}
+		return &ErrWriteToLong{aw.bytesrequired, datalen}
 	}
 
-	if err := aw.w.Write(data); err != nil {
-		return ErrWriteIOError{err: err}
+	if _, err := aw.w.Write(data); err != nil {
+		return &ErrWriteIOError{err: err}
 	}
 	if err := aw.wroteBytes(datalen); err != nil {
 		return err
 	}
 	return nil
 }
-
 
 // ReaderFrom writes all the data from r (till EOF) into the archive. 
 // The size of data should match the value given previously to WriteHeader*
@@ -189,14 +188,14 @@ func (aw *Writer) writePartial(data []byte) Error {
 // Calling with wrong size data will return ErrFatalWriteToLong, the archive
 // should be considered broken.
 // Calling after Close will return ErrWriteAfterClose
-func (aw *Writer) ReaderFrom(r io.Reader) int64, Error {
+func (aw *Writer) ReaderFrom(r io.Reader) (int64, Error) {
 	if err := aw.checkWrite(); err != nil {
 		return -1, err
 	}
 
-	count, err := io.Copy(aw.w, data)
+	count, err := io.Copy(aw.w, r)
 	if err != nil {
-		return ErrWriteIOError{err: err}
+		return -1, &ErrWriteIOError{err: err}
 	}
 	if err := aw.wroteBytes(count); err != nil {
 		return -1, err
@@ -215,13 +214,13 @@ func (aw *Writer) ReaderFrom(r io.Reader) int64, Error {
 // Calling with wrong size data will return ErrWriteToLong but the archive will
 // still be valid.
 // Calling after Close will return ErrWriteAfterClose.
-func (aw *Writer) WriteBytes(data []byte) error {
+func (aw *Writer) WriteBytes(data []byte) Error {
 	if err := aw.checkWrite(); err != nil {
 		return err
 	}
 
 	if datalen := int64(len(data)); datalen != aw.bytesrequired {
-		return ErrWriteToLong{aw.bytesrequired, datalen}
+		return &ErrWriteToLong{aw.bytesrequired, datalen}
 	}
 
 	if err := aw.writePartial(data); err != nil {
@@ -238,36 +237,36 @@ func (aw *Writer) writeHeaderInternal(name string, size int64, modtime uint64, o
 	case writeStageHeader:
 		// Good
 	case writeStageBody:
-		return ErrWriteUsage{msg: "usage error, currently writing a file."}
+		return &ErrWriteUsage{msg: "usage error, currently writing a file."}
 	case writeStageClosed:
-		return ErrWriteAfterClose{}
+		return &ErrWriteAfterClose{}
 	default:
 		log.Fatalf("unknown writer mode: %d", aw.stage)
 	}
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
 	if _, err := fmt.Fprintf(aw.w, "#1/%-13d", len(name)); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	// Modtime, 12 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-12d", modtime); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	// Owner ID, 6 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-6d", ownerid); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	// Group ID, 6 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-6d", groupid); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	// File mode, 8 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-8o", filemod); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	// In BSD variant, file size includes the filename length
@@ -275,12 +274,12 @@ func (aw *Writer) writeHeaderInternal(name string, size int64, modtime uint64, o
 
 	// File size, 10 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-10d", aw.bytesrequired); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	// File magic, 2 bytes
 	if _, err := io.WriteString(aw.w, "\x60\n"); err != nil {
-		return ErrWriteIOError{err: err}
+		return &ErrWriteIOError{err: err}
 	}
 
 	aw.stage = writeStageBody
@@ -304,12 +303,12 @@ func (aw *Writer) WriteHeaderDefault(name string, size int64) Error {
 // Calling at the wrong time will return a ErrWriteUsage.
 func (aw *Writer) WriteHeader(stat os.FileInfo) Error {
 	if stat.IsDir() {
-		return ErrWriteUsage{msg: "only work with files, not directories"}
+		return &ErrWriteUsage{msg: "only work with files, not directories"}
 	}
 
 	mode := stat.Mode()
 	if mode&os.ModeSymlink == os.ModeSymlink {
-		return ErrWriteUsage{msg: "only work with files, not symlinks"}
+		return &ErrWriteUsage{msg: "only work with files, not symlinks"}
 	}
 
 	/* FIXME: Should we also exclude other "special" files?

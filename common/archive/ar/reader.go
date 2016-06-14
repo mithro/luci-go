@@ -17,7 +17,7 @@ import (
 )
 
 var (
-    ErrHeader = errors.New("archive/tar: invalid tar header")
+	ErrHeader = errors.New("archive/tar: invalid tar header")
 )
 
 type ArFileInfo interface {
@@ -58,10 +58,10 @@ const (
 )
 
 type Reader struct {
-	stage         readerStage
-	r             io.Reader
+	stage               readerStage
+	r                   io.Reader
 	streamSizeRemaining int64
-	needspadding  bool
+	needspadding        bool
 }
 
 func NewReader(r io.Reader) (*Reader, error) {
@@ -114,7 +114,7 @@ func (ar *Reader) completeReadBytes(numbytes int64) error {
 
 	// Padding to 16bit boundary
 	if ar.needspadding {
-		if err := ar.checkBytes("padding", []byte{"\n"}); err != nil {
+		if err := ar.checkBytes("padding", []byte{'\n'}); err != nil {
 			return err
 		}
 		ar.needspadding = false
@@ -163,7 +163,7 @@ func (ar *Reader) readHeaderBytes(name string, bytes int, formatstr string) (int
 	}
 
 	var output int64
-	if _, err = fmt.Sscanf(string(data), formatstr, &output); err != nil {
+	if _, err := fmt.Sscanf(string(data), formatstr, &output); err != nil {
 		return -1, err
 	}
 
@@ -229,7 +229,7 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 	fi.size = size - namelen
 
 	// File magic, 2 bytes
-	if err = ar.checkBytes("filemagic", []byte{"\x60", "\n"}); err != nil {
+	if err = ar.checkBytes("filemagic", []byte{'\x60', '\n'}); err != nil {
 		return nil, err
 	}
 
@@ -248,10 +248,10 @@ func (ar *Reader) readHeader() (*arFileInfoData, error) {
 }
 
 func (ar *Reader) Read(b []byte) (int, error) {
-	if err = ar.readPartial("data", b); err != nil {
+	if err := ar.readPartial("data", b); err != nil {
 		return -1, err
 	}
-	if err = ar.checkFinished(); err != nil {
+	if err := ar.checkFinished(); err != nil {
 		return -1, err
 	}
 	return len(b), nil

@@ -48,7 +48,10 @@ func TestWriterCreatesTestFile1(t *testing.T) {
 	b := &bytes.Buffer{}
 	data := []byte("abc123")
 
-	ar := NewWriter(b)
+	ar, err := NewWriter(b)
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
 	if err := ar.Add("filename1", data); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
@@ -102,7 +105,10 @@ func TestWithSystemArCommandList(t *testing.T) {
 		t.Fatalf("unable to create temp file: %v", err)
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
-	ar := NewWriter(tmpfile)
+	ar, err := NewWriter(tmpfile)
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
 	ar.Add("file1.txt", []byte("file1 contents"))
 	ar.Add("file2.txt", []byte("file2 contents"))
 	ar.Add("dir1/file3.txt", []byte("file3 contents"))
@@ -136,7 +142,10 @@ func TestWithSystemArCommandExtract(t *testing.T) {
 		t.Fatalf("unable to create temp file: %v", err)
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
-	ar := NewWriter(tmpfile)
+	ar, err := NewWriter(tmpfile)
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
 	ar.Add("file1.txt", []byte("file1 contents"))
 	ar.Add("file2.txt", []byte("file2 contents"))
 	ar.Close()
