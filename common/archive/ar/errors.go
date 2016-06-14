@@ -19,6 +19,7 @@ type Error interface {
 type UsageError struct {
 	msg string
 }
+
 func (e *UsageError) Error() string {
 	return fmt.Sprintf("archive/ar: usage error, %s", e.msg)
 }
@@ -31,7 +32,7 @@ func (e *UsageError) Fatal() bool {
 // IOError is always fatal.
 type IOError struct {
 	filesection string
-	err error
+	err         error
 }
 
 func (e *IOError) Error() string {

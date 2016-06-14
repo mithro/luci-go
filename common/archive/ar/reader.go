@@ -23,7 +23,7 @@ var (
 type ReadConstantIOError struct {
 	IOError
 	wanted []byte
-	got []byte
+	got    []byte
 }
 
 func (e *ReadConstantIOError) Error() string {
@@ -106,7 +106,7 @@ type Reader struct {
 	stage               readerStage
 	r                   io.Reader
 	streamSizeRemaining int64
-	bodyHasPadding        bool
+	bodyHasPadding      bool
 }
 
 func NewReader(r io.Reader) (*Reader, Error) {
@@ -121,7 +121,7 @@ func (ar *Reader) checkBytes(filesection string, str []byte) Error {
 	buffer := make([]byte, len(str))
 
 	if _, err := io.ReadFull(ar.r, buffer); err != nil {
-		return &IOError{filesection: filesection, err:err}
+		return &IOError{filesection: filesection, err: err}
 	}
 
 	if !bytes.Equal(str, buffer) {
@@ -219,7 +219,7 @@ func (ar *Reader) readHeader() (*arFileInfoData, Error) {
 	case readStageHeader:
 		// Good
 	case readStageBody:
-		return nil, &UsageError{msg:"currently writing a file"}
+		return nil, &UsageError{msg: "currently writing a file"}
 	case readStageClosed:
 		return nil, &ErrReadAfterClose
 	default:

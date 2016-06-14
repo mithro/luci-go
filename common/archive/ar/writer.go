@@ -64,7 +64,7 @@ type Writer struct {
 	stage writerStage
 
 	streamSizeNeeded int64
-	bodyNeedsPadding  bool
+	bodyNeedsPadding bool
 }
 
 func NewWriter(w io.Writer) (*Writer, Error) {
@@ -147,7 +147,7 @@ func (aw *Writer) writePartial(filesection string, data []byte) Error {
 	}
 
 	if _, err := aw.w.Write(data); err != nil {
-		return &IOError{filesection:filesection, err: err}
+		return &IOError{filesection: filesection, err: err}
 	}
 	if err := aw.wroteBytes(datalen); err != nil {
 		return err
@@ -220,27 +220,27 @@ func (aw *Writer) writeHeaderInternal(filepath string, size int64, modtime uint6
 
 	// File name length prefixed with '#1/' (BSD variant), 16 bytes
 	if _, err := fmt.Fprintf(aw.w, "#1/%-13d", len(filepath)); err != nil {
-		return &IOError{filesection:"file header filepath length", err: err}
+		return &IOError{filesection: "file header filepath length", err: err}
 	}
 
 	// Modtime, 12 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-12d", modtime); err != nil {
-		return &IOError{filesection:"file header modtime", err: err}
+		return &IOError{filesection: "file header modtime", err: err}
 	}
 
 	// Owner ID, 6 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-6d", ownerid); err != nil {
-		return &IOError{filesection:"file header owner id", err: err}
+		return &IOError{filesection: "file header owner id", err: err}
 	}
 
 	// Group ID, 6 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-6d", groupid); err != nil {
-		return &IOError{filesection:"file header group id", err: err}
+		return &IOError{filesection: "file header group id", err: err}
 	}
 
 	// File mode, 8 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-8o", filemod); err != nil {
-		return &IOError{filesection:"file header file mode", err: err}
+		return &IOError{filesection: "file header file mode", err: err}
 	}
 
 	// In BSD variant, file size includes the filepath length
@@ -248,12 +248,12 @@ func (aw *Writer) writeHeaderInternal(filepath string, size int64, modtime uint6
 
 	// File size, 10 bytes
 	if _, err := fmt.Fprintf(aw.w, "%-10d", aw.streamSizeNeeded); err != nil {
-		return &IOError{filesection:"file header file size", err: err}
+		return &IOError{filesection: "file header file size", err: err}
 	}
 
 	// File magic, 2 bytes
 	if _, err := io.WriteString(aw.w, "\x60\n"); err != nil {
-		return &IOError{filesection:"file header file magic", err: err}
+		return &IOError{filesection: "file header file magic", err: err}
 	}
 
 	aw.stage = writeStageBody
