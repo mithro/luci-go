@@ -1,12 +1,12 @@
 #!/bin/bash
-# Copyright 2015 The LUCI Authors. All rights reserved.
+# Copyright 2016 The LUCI Authors. All rights reserved.
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
 set -e
 
-mkdir luci-go
-cd luci-go
+mkdir cr-infra-go-area
+cd cr-infra-go-area
 
 # Download depot_tools
 echo "Getting Chromium depot_tools.."
@@ -30,12 +30,12 @@ if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
 
 export DEPOT_TOOLS="$PWD/depot_tools"
 export PATH="\$DEPOT_TOOLS:\$PATH"
-export PS1="[luci-go] \$PS1"
+export PS1="[cr-infra-go-area] \$PS1"
 
 cd $PWD/infra/go
 eval \$($PWD/infra/go/env.py)
 
-echo "Entered luci-go setup at '$PWD'"
+echo "Entered cr-infra-go-area setup at '$PWD'"
 cd "$PWD/infra/go/src/github.com/luci/luci-go"
 EOF
 chmod a+x $ENTER_SCRIPT
@@ -45,9 +45,9 @@ source $ENTER_SCRIPT
 
 # Output usage instructions
 if [ -d ~/bin ]; then
-	ln -sf $ENTER_SCRIPT ~/bin/luci-go-enter-env
-	if which luci-go-enter-env; then
-		echo "Enter the environment by running 'luci-go-enter-env'"
+	ln -sf $ENTER_SCRIPT ~/bin/cr-infra-go-area-enter
+	if which cr-infra-go-area-enter; then
+		echo "Enter the environment by running 'cr-infra-go-area-enter'"
 		exit 0
 	fi
 fi

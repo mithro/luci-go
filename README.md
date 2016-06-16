@@ -8,16 +8,18 @@ luci-go: LUCI services and tools in Go
 Installing
 ----------
 
+If you already have a go environment and are developing outside of Chrome
+infrastructure:
+
     go get -u github.com/luci/luci-go/client/cmd/...
     go get -u github.com/luci/luci-go/server/cmd/...
 
-There is a [`quicksetup.sh`](quicksetup.sh) script which can be used to get all
-the needed dependencies.
+Otherwise you should use [Chromium infra/go area](https://chromium.googlesource.com/infra/infra/+/master/go/README.md).
+You can use the [`quicksetup-infra-go-area.sh`](quicksetup-infra-go-area.sh) script to get such an
+environment like this:
 
-
- You can use it like;
-
-    wget -O- https://raw.githubusercontent.com/luci/luci-go/master/quickstart.sh | bash
+    cd /where/you/want/source/code
+    wget -O- https://raw.githubusercontent.com/luci/luci-go/master/quicksetup-infra-go-area.sh | bash
 
 
 Code layout
