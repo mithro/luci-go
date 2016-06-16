@@ -8,63 +8,44 @@ set -e
 mkdir luci-go
 cd luci-go
 
-# Create a bashrc include file
-cat > enter-env.sh <<EOF
-#!/bin/bash
-[[ "\${BASH_SOURCE[0]}" != "\${0}" ]] && SOURCED=1 || SOURCED=0
-if [ \$SOURCED = 0 ]; then
-	exec bash --init-file $PWD/enter-env.sh
-fi
-
-if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
-
-export GOROOT="$PWD/go"
-export GOPATH="$PWD/gocode"
-export DEPOT_TOOLS="$PWD/depot_tools"
-export PATH="\$GOROOT/bin:\$GOPATH/bin:\$DEPOT_TOOLS:\$PATH"
-export PS1="[luci-go] \$PS1"
-echo "Entered luci-go setup at '$PWD'"
-cd "$PWD/gocode/src/github.com/luci/luci-go"
-EOF
-chmod a+x enter-env.sh
-
-# Get the go runtime
-echo "Downloading go runtime.."
-GOVER=1.6.2
-GORUN=go$GOVER.linux-amd64.tar.gz
-wget -c https://storage.googleapis.com/golang/$GORUN -O /tmp/$GORUN
-echo
-echo "Install go runtime.."
-tar -xf /tmp/$GORUN
-echo
-
-# Setup go code working directory
-mkdir gocode
-
 # Download depot_tools
 echo "Getting Chromium depot_tools.."
 git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git depot_tools
 echo
 
-# The cd will fail because we haven't gotten the code yet
-set +e
-source enter-env.sh 2> /dev/null
-set -e
+echo "Fetching the infra build..."
+"$PWD/depot_tools/fetch" infra
 
-# Download useful tools
-echo "Getting useful tools.."
-go get -v -u golang.org/x/tools/cmd/goimports/... # goimports
-go get -v -u github.com/maruel/pre-commit-go/cmd/... # pcg
-echo
+echo "Creating enter script..."
+# Create a bashrc include file
+ENTER_SCRIPT=$PWD/enter-env.sh
+cat > $ENTER_SCRIPT <<EOF
+#!/bin/bash
+[[ "\${BASH_SOURCE[0]}" != "\${0}" ]] && SOURCED=1 || SOURCED=0
+if [ \$SOURCED = 0 ]; then
+	exec bash --init-file $ENTER_SCRIPT
+fi
 
-# Download the actual luci-go code
-echo "Getting luci-go code.."
-go get -v -u github.com/luci/luci-go/...
-echo
+if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
+
+export DEPOT_TOOLS="$PWD/depot_tools"
+export PATH="\$DEPOT_TOOLS:\$PATH"
+export PS1="[luci-go] \$PS1"
+
+cd $PWD/infra/go
+eval \$($PWD/infra/go/env.py)
+
+echo "Entered luci-go setup at '$PWD'"
+cd "$PWD/infra/go/src/github.com/luci/luci-go"
+EOF
+chmod a+x $ENTER_SCRIPT
+
+# Running the env setup for the first time
+source $ENTER_SCRIPT
 
 # Output usage instructions
 if [ -d ~/bin ]; then
-	ln -sf $PWD/enter-env.sh ~/bin/luci-go-enter-env
+	ln -sf $ENTER_SCRIPT ~/bin/luci-go-enter-env
 	if which luci-go-enter-env; then
 		echo "Enter the environment by running 'luci-go-enter-env'"
 		exit 0
