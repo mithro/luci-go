@@ -15,11 +15,11 @@ infrastructure:
     go get -u github.com/luci/luci-go/server/cmd/...
 
 Otherwise you should use [Chromium infra/go area](https://chromium.googlesource.com/infra/infra/+/master/go/README.md).
-You can use the [`quicksetup-infra-go-area.sh`](quicksetup-infra-go-area.sh) script to get such an
-environment like this:
+You can use their [`quicksetup`](https://chromium.googlesource.com/infra/infra/+/master/go/quicksetup.sh)
+script to get such an environment like this:
 
     cd /where/you/want/source/code
-    wget -O- https://raw.githubusercontent.com/luci/luci-go/master/quicksetup-infra-go-area.sh | bash
+    wget -O- "https://chromium.googlesource.com/infra/infra/+/master/go/quicksetup.sh?format=TEXT" | bash
 
 
 Code layout
