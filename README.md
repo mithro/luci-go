@@ -19,7 +19,7 @@ You can use their [`quicksetup`](https://chromium.googlesource.com/infra/infra/+
 script to get such an environment like this:
 
     cd /where/you/want/source/code
-    wget -O- "https://chromium.googlesource.com/infra/infra/+/master/go/quicksetup.sh?format=TEXT" | bash
+    wget -O- "https://chromium.googlesource.com/infra/infra/+/master/go/quicksetup.sh?format=TEXT" | base64 -d | bash
 
 
 Code layout
