@@ -9,18 +9,10 @@ import (
 	"math/rand"
 )
 
-// io.Reader which produces the given byte array repetitively.
-type repeatedByteGenerator struct {
-	data  []byte
-	index int
-}
-
-func (g *repeatedByteGenerator) Read(p []byte) (n int, err error) {
-	for i := range p {
-		p[i] = g.data[g.index]
-		g.index = (g.index + 1) % len(g.data)
-	}
-	return len(p), nil
+// io.Reader which produces truly random binary data (totally uncompressible).
+func RandomBinaryGenerator(r *rand.Rand) io.Reader {
+	// rand.Rand already produces random binary data via Read()
+	return r
 }
 
 // io.Reader which produces a random text.
@@ -44,10 +36,31 @@ func (g *textRandomGenerator) Read(p []byte) (n int, err error) {
 	return i, nil
 }
 
-// io.Reader which produces truly random binary data (totally uncompressible).
-func RandomBinaryGenerator(r *rand.Rand) io.Reader {
-	// rand.Rand already produces random binary data via Read()
-	return r
+// io.Reader which produces truly random text data (mostly uncompressible).
+func RandomTextGenerator(r *rand.Rand) io.Reader {
+	reader := textRandomGenerator{r: r}
+	return &reader
+}
+
+
+// Repeated sequence size range
+const (
+	SEQUENCE_MINSIZE uint64 = 16
+	SEQUENCE_MAXSIZE uint64 = 4 * 1024
+)
+
+// io.Reader which produces the given byte array repetitively.
+type repeatedByteGenerator struct {
+	data  []byte
+	index int
+}
+
+func (g *repeatedByteGenerator) Read(p []byte) (n int, err error) {
+	for i := range p {
+		p[i] = g.data[g.index]
+		g.index = (g.index + 1) % len(g.data)
+	}
+	return len(p), nil
 }
 
 // io.Reader which produces repeated binary data (some what compressible).
@@ -60,18 +73,6 @@ func RepeatedBinaryGenerator(r *rand.Rand) io.Reader {
 
 	return &repeater
 }
-
-// io.Reader which produces truly random text data (mostly uncompressible).
-func RandomTextGenerator(r *rand.Rand) io.Reader {
-	reader := textRandomGenerator{r: r}
-	return &reader
-}
-
-const (
-	// Maximum 4k long repeated sequences
-	SEQUENCE_MINSIZE uint64 = 16
-	SEQUENCE_MAXSIZE uint64 = 4 * 1024
-)
 
 // io.Reader which produces repeated text data (very compressible).
 func RepeatedTextGenerator(r *rand.Rand) io.Reader {

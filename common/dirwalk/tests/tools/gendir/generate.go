@@ -4,8 +4,6 @@
 
 package main
 
-// Tools for generating test directories.
-
 import (
 	"fmt"
 	"io"

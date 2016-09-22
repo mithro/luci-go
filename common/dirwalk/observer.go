@@ -10,7 +10,6 @@ package dirwalk
 // differently.
 //
 // SmallFile and LargeFile must be called in sorted order.
-
 type WalkObserver interface {
 	SmallFile(filename string, alldata []byte)
 	LargeFile(filename string)
