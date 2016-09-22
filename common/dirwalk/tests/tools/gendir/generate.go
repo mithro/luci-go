@@ -8,8 +8,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"io"
+	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -77,7 +77,6 @@ func (f FileType) String() string {
 	return FileTypeName[int(f)]
 }
 
-
 // Generate num files between (min, max) size
 func generateFiles(r *rand.Rand, dir string, num uint64, filesize_min uint64, filesize_max uint64) {
 	for i := uint64(0); i < num; i++ {
@@ -94,7 +93,7 @@ func generateFiles(r *rand.Rand, dir string, num uint64, filesize_min uint64, fi
 		filetype := FileType(r.Intn(int(FILETYPE_MAX)))
 
 		var filecontent io.Reader
-		switch  filetype {
+		switch filetype {
 		case FILETYPE_BIN_RAND:
 			filecontent = RandomBinaryGenerator(r)
 		case FILETYPE_TXT_RAND:

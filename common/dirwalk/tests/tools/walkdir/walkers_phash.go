@@ -10,8 +10,8 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/luci/luci-go/common/isolated"
 	"github.com/dustin/go-humanize"
+	"github.com/luci/luci-go/common/isolated"
 )
 
 var maxworkers = flag.Int("maxworkers", 100, "Maximum number of workers to use.")

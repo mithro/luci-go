@@ -11,18 +11,17 @@ import (
 
 // io.Reader which produces the given byte array repetitively.
 type repeatedByteGenerator struct {
-	data []byte
+	data  []byte
 	index int
 }
 
 func (g *repeatedByteGenerator) Read(p []byte) (n int, err error) {
 	for i := range p {
 		p[i] = g.data[g.index]
-		g.index = (g.index+1) % len(g.data)
+		g.index = (g.index + 1) % len(g.data)
 	}
 	return len(p), nil
 }
-
 
 // io.Reader which produces a random text.
 type textRandomGenerator struct {
@@ -56,7 +55,7 @@ func RepeatedBinaryGenerator(r *rand.Rand) io.Reader {
 	// Figure out how big the repeated sequence will be
 	sequence_size := randBetween(r, SEQUENCE_MINSIZE, SEQUENCE_MAXSIZE)
 
-	repeater := repeatedByteGenerator{index: 0, data:make([]byte, sequence_size)}
+	repeater := repeatedByteGenerator{index: 0, data: make([]byte, sequence_size)}
 	r.Read(repeater.data)
 
 	return &repeater
@@ -86,6 +85,6 @@ func RepeatedTextGenerator(r *rand.Rand) io.Reader {
 
 // io.Reader which produces repeated Lorem Ipsum text data (very compressible).
 func LoremTextGenerator() io.Reader {
-	repeater := repeatedByteGenerator{index: 0, data:[]byte(lorem)}
+	repeater := repeatedByteGenerator{index: 0, data: []byte(lorem)}
 	return &repeater
 }

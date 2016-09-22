@@ -5,8 +5,8 @@
 package main
 
 import (
-	"io"
 	"fmt"
+	"io"
 )
 
 // PrintWalker implements Walker. It prints the filename of each found file.
