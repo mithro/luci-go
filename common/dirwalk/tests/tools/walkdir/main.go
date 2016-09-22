@@ -7,8 +7,10 @@ package main
 // Walk a given directory and perform an action on the files found.
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -81,6 +83,7 @@ func mainImpl() error {
 		fmt.Printf("Found %d small files and %d large files\n", stats.smallfiles, stats.largefiles)
 	}
 	fmt.Fprintf(os.Stderr, "Found %d small files and %d large files\n", stats.smallfiles, stats.largefiles)
+	return nil
 }
 
 func main() {

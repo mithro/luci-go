@@ -6,13 +6,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
-	"errors"
 )
 
 type TestSettings struct {
