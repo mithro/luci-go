@@ -18,7 +18,7 @@ type repeatedByteGenerator struct {
 func (g *repeatedByteGenerator) Read(p []byte) (n int, err error) {
 	for i := range p {
 		p[i] = g.data[g.index]
-		g.index = g.index+1 % len(g.data)
+		g.index = (g.index+1) % len(g.data)
 	}
 	return len(p), nil
 }

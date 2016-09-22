@@ -7,11 +7,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"runtime"
-
-	"github.com/dustin/go-humanize"
 )
 
 // SizeWalker implements Walker. It prints the size of every file.
