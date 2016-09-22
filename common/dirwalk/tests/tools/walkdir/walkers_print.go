@@ -11,18 +11,20 @@ import (
 
 // PrintWalker implements Walker. It prints the filename of each found file.
 type PrintWalker struct {
-	NullWalker
+	BaseWalker
 	obuf io.Writer
 }
 
 func (p *PrintWalker) PrintFile(filename string) {
 	fmt.Fprintln(p.obuf, filename)
 }
+
 func (p *PrintWalker) SmallFile(filename string, alldata []byte) {
-	p.NullWalker.SmallFile(filename, alldata)
+	p.BaseWalker.SmallFile(filename, alldata)
 	p.PrintFile(filename)
 }
+
 func (p *PrintWalker) LargeFile(filename string) {
-	p.NullWalker.LargeFile(filename)
+	p.BaseWalker.LargeFile(filename)
 	p.PrintFile(filename)
 }

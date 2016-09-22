@@ -14,19 +14,21 @@ import (
 // HashWalker implements Walker. It generates a hash for the contents of each
 // found file.
 type HashWalker struct {
-	NullWalker
+	BaseWalker
 	obuf io.Writer
 }
 
 func (h *HashWalker) HashedFile(filename string, digest isolated.HexDigest) {
 	fmt.Fprintf(h.obuf, "%s: %v\n", filename, digest)
 }
+
 func (h *HashWalker) SmallFile(filename string, alldata []byte) {
-	h.NullWalker.SmallFile(filename, alldata)
+	h.BaseWalker.SmallFile(filename, alldata)
 	h.HashedFile(filename, isolated.HashBytes(alldata))
 }
+
 func (h *HashWalker) LargeFile(filename string) {
-	h.NullWalker.LargeFile(filename)
+	h.BaseWalker.LargeFile(filename)
 	d, _ := isolated.HashFile(filename)
 	h.HashedFile(filename, isolated.HexDigest(d.Digest))
 }

@@ -35,32 +35,32 @@ func mainImpl() error {
 		return err
 	}
 
-	var stats *NullWalker
+	var stats *BaseWalker
 	var obs dirwalk.WalkObserver
 	switch *do {
 	case "nothing":
-		o := &NullWalker{}
+		o := &BaseWalker{}
 		stats = o
 		obs = o
 	case "print":
 		o := &PrintWalker{obuf: os.Stderr}
-		stats = &o.NullWalker
+		stats = &o.BaseWalker
 		obs = o
 	case "size":
 		o := &SizeWalker{obuf: os.Stderr}
-		stats = &o.NullWalker
+		stats = &o.BaseWalker
 		obs = o
 	case "read":
 		o := &ReadWalker{}
-		stats = &o.NullWalker
+		stats = &o.BaseWalker
 		obs = o
 	case "hash":
 		o := &HashWalker{obuf: os.Stderr}
-		stats = &o.NullWalker
+		stats = &o.BaseWalker
 		obs = o
 	case "phash":
 		o := CreateParallelHashWalker(os.Stderr)
-		stats = &o.NullWalker
+		stats = &o.BaseWalker
 		obs = o
 	default:
 		log.Fatalf("Invalid action '%s'", *do)

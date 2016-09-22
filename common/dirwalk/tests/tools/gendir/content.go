@@ -42,7 +42,6 @@ func RandomTextGenerator(r *rand.Rand) io.Reader {
 	return &reader
 }
 
-
 // Repeated sequence size range
 const (
 	SEQUENCE_MINSIZE uint64 = 16

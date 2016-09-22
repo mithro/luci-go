@@ -9,20 +9,20 @@ import (
 	"sync/atomic"
 )
 
-// NullWalker implements Walker. It counts the number of files of each type.
-type NullWalker struct {
+// BaseWalker implements Walker. It counts the number of files of each type.
+type BaseWalker struct {
 	smallfiles uint64
 	largefiles uint64
 }
 
-func (n *NullWalker) SmallFile(filename string, alldata []byte) {
+func (n *BaseWalker) SmallFile(filename string, alldata []byte) {
 	atomic.AddUint64(&n.smallfiles, 1)
 }
-func (n *NullWalker) LargeFile(filename string) {
+func (n *BaseWalker) LargeFile(filename string) {
 	atomic.AddUint64(&n.largefiles, 1)
 }
-func (n *NullWalker) Error(pathname string, err error) {
+func (n *BaseWalker) Error(pathname string, err error) {
 	log.Fatalf("%s:%s", pathname, err)
 }
-func (n *NullWalker) Finished() {
+func (n *BaseWalker) Finished() {
 }

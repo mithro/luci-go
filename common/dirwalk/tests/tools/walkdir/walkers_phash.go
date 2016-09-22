@@ -25,7 +25,7 @@ type ToHash struct {
 // ParallelHashWalker implements Walker. It generates a hash for the contents
 // of each found file using multiple threads.
 type ParallelHashWalker struct {
-	NullWalker
+	BaseWalker
 	obuf     io.Writer
 	workers  int
 	queue    *chan ToHash
@@ -54,6 +54,7 @@ func ParallelHashWalkerWorker(name int, obuf io.Writer, queue <-chan ToHash, fin
 	fmt.Fprintf(obuf, "Finished hash worker %d (hashed %d files, %s)\n", name, filecount, humanize.Bytes(bytecount))
 	finished <- true
 }
+
 func CreateParallelHashWalker(obuf io.Writer) *ParallelHashWalker {
 	var max int = *maxworkers
 
@@ -74,6 +75,7 @@ func CreateParallelHashWalker(obuf io.Writer) *ParallelHashWalker {
 	h := ParallelHashWalker{obuf: obuf, workers: max, finished: make(chan bool)}
 	return &h
 }
+
 func (h *ParallelHashWalker) Init() {
 	if h.queue == nil {
 		q := make(chan ToHash, h.workers)
@@ -83,16 +85,19 @@ func (h *ParallelHashWalker) Init() {
 		}
 	}
 }
+
 func (h *ParallelHashWalker) SmallFile(filename string, alldata []byte) {
-	h.NullWalker.SmallFile(filename, alldata)
+	h.BaseWalker.SmallFile(filename, alldata)
 	h.Init()
 	*h.queue <- ToHash{filename: filename, hasdata: true, data: alldata}
 }
+
 func (h *ParallelHashWalker) LargeFile(filename string) {
-	h.NullWalker.LargeFile(filename)
+	h.BaseWalker.LargeFile(filename)
 	h.Init()
 	*h.queue <- ToHash{filename: filename, hasdata: false}
 }
+
 func (h *ParallelHashWalker) Finished() {
 	h.Init()
 	close(*h.queue)

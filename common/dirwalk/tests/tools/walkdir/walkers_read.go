@@ -10,14 +10,15 @@ import (
 
 // ReadWalker implements Walker. It reads the contents of each found file.
 type ReadWalker struct {
-	NullWalker
+	BaseWalker
 }
 
 func (r *ReadWalker) SmallFile(filename string, alldata []byte) {
-	r.NullWalker.SmallFile(filename, alldata)
+	r.BaseWalker.SmallFile(filename, alldata)
 }
+
 func (r *ReadWalker) LargeFile(filename string) {
-	r.NullWalker.LargeFile(filename)
+	r.BaseWalker.LargeFile(filename)
 	_, err := ioutil.ReadFile(filename)
 	if err != nil {
 		r.Error(filename, err)
