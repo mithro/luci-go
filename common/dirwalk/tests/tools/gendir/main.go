@@ -4,8 +4,6 @@
 
 package main
 
-// Generate directory tree following a given structure.
-
 import (
 	"encoding/json"
 	"flag"
@@ -14,6 +12,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"errors"
 )
 
 type TestSettings struct {
@@ -23,23 +22,28 @@ type TestSettings struct {
 	Tree    TreeSettings
 }
 
-var config = flag.String("config", "", "JSON config file for generating test file.")
-var outdir = flag.String("outdir", "", "Where to write the output.")
-var seed = flag.Int64("seed", 4, "Seed for random.")
+func mainImpl() error {
+	config := flag.String("config", "", "JSON config file for generating test file.")
+	outdir := flag.String("outdir", "", "Where to write the output.")
+	seed := flag.Int64("seed", 4, "Seed for random.")
+	verbose := flag.Bool("v", false, "verbose mode")
 
-func main() {
 	flag.Parse()
+
+	if !*verbose {
+		log.SetOutput(ioutil.Discard)
+	}
 
 	var settings TestSettings
 	settings.Seed = *seed
 
 	configdata, err := ioutil.ReadFile(*config)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if err := json.Unmarshal(configdata, &settings); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	fmt.Printf("%s: %s\n", settings.Name, settings.Comment)
@@ -47,23 +51,31 @@ func main() {
 	fmt.Println()
 
 	if len(*outdir) == 0 {
-		log.Fatal("No output directory supplied.")
+		return errors.New("no output directory supplied")
 	}
 
 	if _, err := os.Stat(*outdir); !os.IsNotExist(err) {
-		log.Fatal("directory exists!")
+		return errors.New("directory exists")
 	}
 
 	if *seed != 4 && settings.Seed != *seed {
-		log.Fatal("Seed supplied by test config.")
+		return errors.New("seed supplied by test config")
 	}
 
 	r := rand.New(rand.NewSource(settings.Seed))
 
 	// Create the root directory
-	if err := os.MkdirAll(*outdir, 0755); err != nil {
-		log.Fatal(err)
+	if err := os.MkdirAll(*outdir, 0700); err != nil {
+		return err
 	}
 
 	GenerateTree(r, *outdir, &settings.Tree)
+	return nil
+}
+
+func main() {
+	if err := mainImpl(); err != nil {
+		fmt.Fprintf(os.Stderr, "gendir: %s.\n", err)
+		os.Exit(1)
+	}
 }

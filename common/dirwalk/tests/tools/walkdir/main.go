@@ -15,19 +15,22 @@ import (
 	"github.com/luci/luci-go/common/dirwalk"
 )
 
-var method = flag.String("method", "simple", "Method used to walk the tree")
-var dir = flag.String("dir", "", "Directory to walk")
+func mainImpl() error {
+	method := flag.String("method", "simple", "Method used to walk the tree")
+	dir := flag.String("dir", "", "Directory to walk")
+	do := flag.String("do", "nothing", "Action to perform on the files")
+	smallfilesize := flag.Int64("smallfilesize", 64*1024, "Size to consider a small file")
+	repeat := flag.Int("repeat", 1, "Repeat the walk x times")
+	verbose := flag.Bool("v", false, "verbose mode")
 
-//var do = flags.Choice("do", "null", ["null", "print", "read"])
-var do = flag.String("do", "nothing", "Action to perform on the files")
-var smallfilesize = flag.Int64("smallfilesize", 64*1024, "Size to consider a small file")
-var repeat = flag.Int("repeat", 1, "Repeat the walk x times")
-
-func main() {
 	flag.Parse()
 
+	if !*verbose {
+		log.SetOutput(ioutil.Discard)
+	}
+
 	if _, err := os.Stat(*dir); err != nil {
-		log.Fatalf("Directory not found: %s", err)
+		return err
 	}
 
 	var stats *NullWalker
@@ -73,9 +76,16 @@ func main() {
 		case "parallel":
 			dirwalk.WalkParallel(*dir, *smallfilesize, obs)
 		default:
-			log.Fatalf("Invalid walk method '%s'", *method)
+			return errors.New(fmt.Sprintf("Invalid walk method '%s'", *method))
 		}
 		fmt.Printf("Found %d small files and %d large files\n", stats.smallfiles, stats.largefiles)
 	}
 	fmt.Fprintf(os.Stderr, "Found %d small files and %d large files\n", stats.smallfiles, stats.largefiles)
+}
+
+func main() {
+	if err := mainImpl(); err != nil {
+		fmt.Fprintf(os.Stderr, "walkdir: %s.\n", err)
+		os.Exit(1)
+	}
 }
