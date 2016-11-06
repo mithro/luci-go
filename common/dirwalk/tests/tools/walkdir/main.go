@@ -35,40 +35,27 @@ func mainImpl() error {
 		return err
 	}
 
-	var stats *BaseWalker
-	var obs dirwalk.WalkObserver
+	var proc *BaseFileProcessor
 	switch *do {
 	case "nothing":
-		o := &BaseWalker{}
-		stats = o
-		obs = o
+		proc := &BaseFileProcessor{}
 	case "print":
-		o := &PrintWalker{obuf: os.Stderr}
-		stats = &o.BaseWalker
-		obs = o
+		proc := &PrintFileProcessor{obuf: os.Stderr}
 	case "size":
-		o := &SizeWalker{obuf: os.Stderr}
-		stats = &o.BaseWalker
-		obs = o
+		proc := &SizeFileProcessor{obuf: os.Stderr}
 	case "read":
-		o := &ReadWalker{}
-		stats = &o.BaseWalker
-		obs = o
+		proc := &ReadFileProcessor{}
 	case "hash":
-		o := &HashWalker{obuf: os.Stderr}
-		stats = &o.BaseWalker
-		obs = o
+		proc := &HashFileProcessor{obuf: os.Stderr}
 	case "phash":
-		o := CreateParallelHashWalker(os.Stderr)
-		stats = &o.BaseWalker
-		obs = o
+		proc := CreateParallelHashFileProcessor(os.Stderr)
 	default:
 		log.Fatalf("Invalid action '%s'", *do)
 	}
 
 	for i := 0; i < *repeat; i++ {
-		stats.smallfiles = 0
-		stats.largefiles = 0
+		proc.smallfiles = 0
+		proc.largefiles = 0
 
 		switch *method {
 		case "simple":
@@ -80,9 +67,11 @@ func mainImpl() error {
 		default:
 			return errors.New(fmt.Sprintf("Invalid walk method '%s'", *method))
 		}
-		fmt.Printf("Found %d small files and %d large files\n", stats.smallfiles, stats.largefiles)
+		proc.Finished()
+		fmt.Printf("Found %d small files and %d large files\n", proc.smallfiles, proc.largefiles)
 	}
-	fmt.Fprintf(os.Stderr, "Found %d small files and %d large files\n", stats.smallfiles, stats.largefiles)
+
+	fmt.Fprintf(os.Stderr, "Found %d small files and %d large files\n", proc.smallfiles, proc.largefiles)
 	return nil
 }
 

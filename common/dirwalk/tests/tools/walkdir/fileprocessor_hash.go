@@ -11,24 +11,24 @@ import (
 	"github.com/luci/luci-go/common/isolated"
 )
 
-// HashWalker implements Walker. It generates a hash for the contents of each
+// HashFileProcessor implements FileProcessor. It generates a hash for the contents of each
 // found file.
-type HashWalker struct {
-	BaseWalker
+type HashFileProcessor struct {
+	BaseFileProcessor
 	obuf io.Writer
 }
 
-func (h *HashWalker) HashedFile(filename string, digest isolated.HexDigest) {
+func (h *HashFileProcessor) HashedFile(filename string, digest isolated.HexDigest) {
 	fmt.Fprintf(h.obuf, "%s: %v\n", filename, digest)
 }
 
-func (h *HashWalker) SmallFile(filename string, alldata []byte) {
-	h.BaseWalker.SmallFile(filename, alldata)
+func (h *HashFileProcessor) SmallFile(filename string, alldata []byte) {
+	h.BaseFileProcessor.SmallFile(filename, alldata)
 	h.HashedFile(filename, isolated.HashBytes(alldata))
 }
 
-func (h *HashWalker) LargeFile(filename string) {
-	h.BaseWalker.LargeFile(filename)
+func (h *HashFileProcessor) LargeFile(filename string) {
+	h.BaseFileProcessor.LargeFile(filename)
 	d, _ := isolated.HashFile(filename)
 	h.HashedFile(filename, isolated.HexDigest(d.Digest))
 }

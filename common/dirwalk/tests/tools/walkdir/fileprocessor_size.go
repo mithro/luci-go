@@ -10,23 +10,23 @@ import (
 	"os"
 )
 
-// SizeWalker implements Walker. It prints the size of every file.
-type SizeWalker struct {
-	BaseWalker
+// SizeFileProcessor implements FileProcessor. It prints the size of every file.
+type SizeFileProcessor struct {
+	BaseFileProcessor
 	obuf io.Writer
 }
 
-func (s *SizeWalker) SizeFile(filename string, size int64) {
+func (s *SizeFileProcessor) SizeFile(filename string, size int64) {
 	fmt.Fprintf(s.obuf, "%s: %d\n", filename, size)
 }
 
-func (s *SizeWalker) SmallFile(filename string, alldata []byte) {
-	s.BaseWalker.SmallFile(filename, alldata)
+func (s *SizeFileProcessor) SmallFile(filename string, alldata []byte) {
+	s.BaseFileProcessor.SmallFile(filename, alldata)
 	s.SizeFile(filename, int64(len(alldata)))
 }
 
-func (s *SizeWalker) LargeFile(filename string) {
-	s.BaseWalker.LargeFile(filename)
+func (s *SizeFileProcessor) LargeFile(filename string) {
+	s.BaseFileProcessor.LargeFile(filename)
 	stat, err := os.Stat(filename)
 	if err != nil {
 		s.Error(filename, err)

@@ -22,17 +22,17 @@ type ToHash struct {
 	data     []byte
 }
 
-// ParallelHashWalker implements Walker. It generates a hash for the contents
+// ParallelHashFileProcessor implements FileProcessor. It generates a hash for the contents
 // of each found file using multiple threads.
-type ParallelHashWalker struct {
-	BaseWalker
+type ParallelHashFileProcessor struct {
+	BaseFileProcessor
 	obuf     io.Writer
 	workers  int
 	queue    *chan ToHash
 	finished chan bool
 }
 
-func ParallelHashWalkerWorker(name int, obuf io.Writer, queue <-chan ToHash, finished chan<- bool) {
+func ParallelHashFileProcessorWorker(name int, obuf io.Writer, queue <-chan ToHash, finished chan<- bool) {
 	fmt.Fprintf(obuf, "Starting hash worker %d\n", name)
 
 	var filecount uint64 = 0
@@ -55,7 +55,7 @@ func ParallelHashWalkerWorker(name int, obuf io.Writer, queue <-chan ToHash, fin
 	finished <- true
 }
 
-func CreateParallelHashWalker(obuf io.Writer) *ParallelHashWalker {
+func CreateParallelHashFileProcessor(obuf io.Writer) *ParallelHashFileProcessor {
 	var max int = *maxworkers
 
 	maxProcs := runtime.GOMAXPROCS(0)
@@ -72,33 +72,33 @@ func CreateParallelHashWalker(obuf io.Writer) *ParallelHashWalker {
 		// FIXME: Warn
 	}
 
-	h := ParallelHashWalker{obuf: obuf, workers: max, finished: make(chan bool)}
+	h := ParallelHashFileProcessor{obuf: obuf, workers: max, finished: make(chan bool)}
 	return &h
 }
 
-func (h *ParallelHashWalker) Init() {
+func (h *ParallelHashFileProcessor) Init() {
 	if h.queue == nil {
 		q := make(chan ToHash, h.workers)
 		h.queue = &q
 		for i := 0; i < h.workers; i++ {
-			go ParallelHashWalkerWorker(i, h.obuf, *h.queue, h.finished)
+			go ParallelHashFileProcessorWorker(i, h.obuf, *h.queue, h.finished)
 		}
 	}
 }
 
-func (h *ParallelHashWalker) SmallFile(filename string, alldata []byte) {
-	h.BaseWalker.SmallFile(filename, alldata)
+func (h *ParallelHashFileProcessor) SmallFile(filename string, alldata []byte) {
+	h.BaseFileProcessor.SmallFile(filename, alldata)
 	h.Init()
 	*h.queue <- ToHash{filename: filename, hasdata: true, data: alldata}
 }
 
-func (h *ParallelHashWalker) LargeFile(filename string) {
-	h.BaseWalker.LargeFile(filename)
+func (h *ParallelHashFileProcessor) LargeFile(filename string) {
+	h.BaseFileProcessor.LargeFile(filename)
 	h.Init()
 	*h.queue <- ToHash{filename: filename, hasdata: false}
 }
 
-func (h *ParallelHashWalker) Finished() {
+func (h *ParallelHashFileProcessor) Finished() {
 	h.Init()
 	close(*h.queue)
 	for i := 0; i < h.workers; i++ {
