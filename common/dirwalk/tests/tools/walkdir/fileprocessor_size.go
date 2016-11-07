@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 )
 
@@ -16,21 +17,26 @@ type SizeFileProcessor struct {
 	obuf io.Writer
 }
 
-func (s *SizeFileProcessor) SizeFile(filename string, size int64) {
-	fmt.Fprintf(s.obuf, "%s: %d\n", filename, size)
+func (p *SizeFileProcessor) SizeFile(path string, size int64) {
+	fmt.Fprintf(p.obuf, "%s: %d\n", path, size)
 }
 
-func (s *SizeFileProcessor) SmallFile(filename string, alldata []byte) {
-	s.BaseFileProcessor.SmallFile(filename, alldata)
-	s.SizeFile(filename, int64(len(alldata)))
-}
-
-func (s *SizeFileProcessor) LargeFile(filename string) {
-	s.BaseFileProcessor.LargeFile(filename)
-	stat, err := os.Stat(filename)
+func (p *SizeFileProcessor) SmallFile(path string, r io.ReadCloser) {
+	bytes, err := io.Copy(ioutil.Discard, r)
 	if err != nil {
-		s.Error(filename, err)
-	} else {
-		s.SizeFile(filename, stat.Size())
+		p.Error(path, err)
 	}
+	p.SizeFile(path, int64(bytes))
+
+	p.BaseFileProcessor.SmallFile(path, r)
+}
+
+func (p *SizeFileProcessor) LargeFile(path string, r io.ReadCloser) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		p.Error(path, err)
+	} else {
+		p.SizeFile(path, fi.Size())
+	}
+	p.BaseFileProcessor.LargeFile(path, r)
 }

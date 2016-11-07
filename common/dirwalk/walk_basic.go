@@ -5,38 +5,29 @@
 package dirwalk
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
-// Trivial implementation of a directory tree walker using the WalkObserver
-// interface.
-func WalkBasic(root string, smallfile_limit int64, obs WalkObserver) {
+// Trivial implementation of a directory tree walker using built in
+// filepath.Walk function.
+func WalkBasic(root string, callback WalkFunc) {
 	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			obs.Error(path, err)
+			callback(path, -1, nil, err)
 			return nil
 		}
 
 		if info.IsDir() {
-			return nil
-		}
-
-		if info.Size() < smallfile_limit {
-			data, err := ioutil.ReadFile(path)
+			callback(path, -1, nil, nil)
+		} else {
+			f, err := os.Open(path)
 			if err != nil {
-				obs.Error(path, err)
+				callback(path, -1, nil, err)
 				return nil
 			}
-			if int64(len(data)) != info.Size() {
-				panic("file size was wrong!")
-			}
-			obs.SmallFile(path, data)
-		} else {
-			obs.LargeFile(path)
+			callback(path, info.Size(), f, nil)
 		}
 		return nil
 	})
-	obs.Finished()
 }

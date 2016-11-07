@@ -8,18 +8,17 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"runtime"
 
 	"github.com/dustin/go-humanize"
-	"github.com/luci/luci-go/common/isolated"
 )
 
 var maxworkers = flag.Int("maxworkers", 100, "Maximum number of workers to use.")
 
 type ToHash struct {
-	filename string
-	hasdata  bool
-	data     []byte
+	path string
+	r    io.ReadCloser
 }
 
 // ParallelHashFileProcessor implements FileProcessor. It generates a hash for the contents
@@ -40,16 +39,14 @@ func ParallelHashFileProcessorWorker(name int, obuf io.Writer, queue <-chan ToHa
 	for tohash := range queue {
 		filecount += 1
 
-		var digest isolated.HexDigest
-		if tohash.hasdata {
-			bytecount += uint64(len(tohash.data))
-			digest = isolated.HashBytes(tohash.data)
-		} else {
-			d, _ := isolated.HashFile(tohash.filename)
-			bytecount += uint64(d.Size)
-			digest = isolated.HexDigest(d.Digest)
+		digest, bytes, err := hash(tohash.r)
+		tohash.r.Close()
+		if err != nil {
+			// FIXME(mithro): Do something here?
+			continue
 		}
-		fmt.Fprintf(obuf, "%s: %v\n", tohash.filename, digest)
+		bytecount += bytes
+		fmt.Fprintf(obuf, "%s: %v\n", tohash.path, digest)
 	}
 	fmt.Fprintf(obuf, "Finished hash worker %d (hashed %d files, %s)\n", name, filecount, humanize.Bytes(bytecount))
 	finished <- true
@@ -72,38 +69,30 @@ func CreateParallelHashFileProcessor(obuf io.Writer) *ParallelHashFileProcessor 
 		// FIXME: Warn
 	}
 
-	h := ParallelHashFileProcessor{obuf: obuf, workers: max, finished: make(chan bool)}
-	return &h
-}
-
-func (h *ParallelHashFileProcessor) Init() {
-	if h.queue == nil {
-		q := make(chan ToHash, h.workers)
-		h.queue = &q
-		for i := 0; i < h.workers; i++ {
-			go ParallelHashFileProcessorWorker(i, h.obuf, *h.queue, h.finished)
-		}
+	p := ParallelHashFileProcessor{obuf: obuf, workers: max, finished: make(chan bool)}
+	q := make(chan ToHash, p.workers)
+	p.queue = &q
+	for i := 0; i < p.workers; i++ {
+		go ParallelHashFileProcessorWorker(i, p.obuf, *p.queue, p.finished)
 	}
+	return &p
 }
 
-func (h *ParallelHashFileProcessor) SmallFile(filename string, alldata []byte) {
-	h.BaseFileProcessor.SmallFile(filename, alldata)
-	h.Init()
-	*h.queue <- ToHash{filename: filename, hasdata: true, data: alldata}
+func (p *ParallelHashFileProcessor) SmallFile(path string, r io.ReadCloser) {
+	*p.queue <- ToHash{path: path, r: r}
+	p.BaseFileProcessor.SmallFile(path, ioutil.NopCloser(r))
 }
 
-func (h *ParallelHashFileProcessor) LargeFile(filename string) {
-	h.BaseFileProcessor.LargeFile(filename)
-	h.Init()
-	*h.queue <- ToHash{filename: filename, hasdata: false}
+func (p *ParallelHashFileProcessor) LargeFile(path string, r io.ReadCloser) {
+	*p.queue <- ToHash{path: path, r: r}
+	p.BaseFileProcessor.LargeFile(path, ioutil.NopCloser(r))
 }
 
-func (h *ParallelHashFileProcessor) Finished() {
-	h.Init()
-	close(*h.queue)
-	for i := 0; i < h.workers; i++ {
-		<-h.finished
+func (p *ParallelHashFileProcessor) Complete(path string) {
+	close(*p.queue)
+	for i := 0; i < p.workers; i++ {
+		<-p.finished
 	}
-	fmt.Fprintln(h.obuf, "All workers finished.")
-	h.queue = nil
+	fmt.Fprintln(p.obuf, "All workers finished.")
+	p.queue = nil
 }

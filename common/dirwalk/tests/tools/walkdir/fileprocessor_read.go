@@ -5,6 +5,7 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 )
 
@@ -13,14 +14,19 @@ type ReadFileProcessor struct {
 	BaseFileProcessor
 }
 
-func (r *ReadFileProcessor) SmallFile(filename string, alldata []byte) {
-	r.BaseFileProcessor.SmallFile(filename, alldata)
+func (p *ReadFileProcessor) ReadFile(path string, r io.Reader) {
+	_, err := io.Copy(ioutil.Discard, r)
+	if err != nil {
+		p.Error(path, err)
+	}
 }
 
-func (r *ReadFileProcessor) LargeFile(filename string) {
-	r.BaseFileProcessor.LargeFile(filename)
-	_, err := ioutil.ReadFile(filename)
-	if err != nil {
-		r.Error(filename, err)
-	}
+func (p *ReadFileProcessor) SmallFile(path string, r io.ReadCloser) {
+	p.ReadFile(path, r)
+	p.BaseFileProcessor.SmallFile(path, r)
+}
+
+func (p *ReadFileProcessor) LargeFile(path string, r io.ReadCloser) {
+	p.ReadFile(path, r)
+	p.BaseFileProcessor.LargeFile(path, r)
 }

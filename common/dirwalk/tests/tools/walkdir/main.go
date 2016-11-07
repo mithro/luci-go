@@ -38,20 +38,26 @@ func mainImpl() error {
 	var proc *BaseFileProcessor
 	switch *do {
 	case "nothing":
-		proc := &BaseFileProcessor{}
+		proc = &BaseFileProcessor{}
 	case "print":
-		proc := &PrintFileProcessor{obuf: os.Stderr}
+		p := &PrintFileProcessor{obuf: os.Stderr}
+		proc = &p.BaseFileProcessor
 	case "size":
-		proc := &SizeFileProcessor{obuf: os.Stderr}
+		p := &SizeFileProcessor{obuf: os.Stderr}
+		proc = &p.BaseFileProcessor
 	case "read":
-		proc := &ReadFileProcessor{}
+		p := &ReadFileProcessor{}
+		proc = &p.BaseFileProcessor
 	case "hash":
-		proc := &HashFileProcessor{obuf: os.Stderr}
+		p := &HashFileProcessor{obuf: os.Stderr}
+		proc = &p.BaseFileProcessor
 	case "phash":
-		proc := CreateParallelHashFileProcessor(os.Stderr)
+		p := CreateParallelHashFileProcessor(os.Stderr)
+		proc = &p.BaseFileProcessor
 	default:
 		log.Fatalf("Invalid action '%s'", *do)
 	}
+	proc.smallfile_size = *smallfilesize
 
 	for i := 0; i < *repeat; i++ {
 		proc.smallfiles = 0
@@ -59,11 +65,11 @@ func mainImpl() error {
 
 		switch *method {
 		case "simple":
-			dirwalk.WalkBasic(*dir, *smallfilesize, obs)
+			dirwalk.WalkBasic(*dir, proc.Callback)
 		case "nostat":
-			dirwalk.WalkNoStat(*dir, *smallfilesize, obs)
+			dirwalk.WalkNoStat(*dir, *smallfilesize, proc.Callback)
 		case "parallel":
-			dirwalk.WalkParallel(*dir, *smallfilesize, obs)
+			dirwalk.WalkParallel(*dir, proc.Callback)
 		default:
 			return errors.New(fmt.Sprintf("Invalid walk method '%s'", *method))
 		}

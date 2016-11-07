@@ -7,8 +7,6 @@ package main
 import (
 	"fmt"
 	"io"
-
-	"github.com/luci/luci-go/common/isolated"
 )
 
 // HashFileProcessor implements FileProcessor. It generates a hash for the contents of each
@@ -18,17 +16,21 @@ type HashFileProcessor struct {
 	obuf io.Writer
 }
 
-func (h *HashFileProcessor) HashedFile(filename string, digest isolated.HexDigest) {
-	fmt.Fprintf(h.obuf, "%s: %v\n", filename, digest)
+func (p *HashFileProcessor) HashedFile(path string, r io.Reader) {
+	digest, _, err := hash(r)
+	if err != nil {
+		p.Error(path, err)
+		return
+	}
+	fmt.Fprintf(p.obuf, "%s: %v\n", path, digest)
 }
 
-func (h *HashFileProcessor) SmallFile(filename string, alldata []byte) {
-	h.BaseFileProcessor.SmallFile(filename, alldata)
-	h.HashedFile(filename, isolated.HashBytes(alldata))
+func (p *HashFileProcessor) SmallFile(path string, r io.ReadCloser) {
+	p.HashedFile(path, r)
+	p.BaseFileProcessor.SmallFile(path, r)
 }
 
-func (h *HashFileProcessor) LargeFile(filename string) {
-	h.BaseFileProcessor.LargeFile(filename)
-	d, _ := isolated.HashFile(filename)
-	h.HashedFile(filename, isolated.HexDigest(d.Digest))
+func (p *HashFileProcessor) LargeFile(path string, r io.ReadCloser) {
+	p.HashedFile(path, r)
+	p.BaseFileProcessor.LargeFile(path, r)
 }

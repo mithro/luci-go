@@ -5,33 +5,56 @@
 package main
 
 import (
+	"io"
 	"log"
 	"sync/atomic"
 )
 
 type FileProcessor interface {
-	SmallFile(filename string, alldata []byte)
-	LargeFile(filename string)
+	Callback(path string, size int64, r io.ReadCloser, err error) error
 
-	Error(pathname string, err error)
+	SmallFile(path string, r io.ReadCloser)
+	LargeFile(path string, r io.ReadCloser)
+
+	Error(path string, err error)
 
 	Finished()
 }
 
 // BaseFileProcessor implements Walker. It counts the number of files of each type.
 type BaseFileProcessor struct {
-	smallfiles uint64
-	largefiles uint64
+	smallfile_size int64
+	smallfiles     uint64
+	largefiles     uint64
 }
 
-func (n *BaseFileProcessor) SmallFile(filename string, alldata []byte) {
+func (n *BaseFileProcessor) Callback(path string, size int64, r io.ReadCloser, err error) {
+	if err != nil {
+		n.Error(path, err)
+		return
+	}
+	if r != nil {
+		// Ignore directories
+		return
+	}
+
+	if size > 0 && size < n.smallfile_size {
+		n.SmallFile(path, r)
+	} else {
+		n.LargeFile(path, r)
+	}
+}
+
+func (n *BaseFileProcessor) SmallFile(path string, r io.ReadCloser) {
 	atomic.AddUint64(&n.smallfiles, 1)
+	r.Close()
 }
-func (n *BaseFileProcessor) LargeFile(filename string) {
+func (n *BaseFileProcessor) LargeFile(path string, r io.ReadCloser) {
 	atomic.AddUint64(&n.largefiles, 1)
+	r.Close()
 }
-func (n *BaseFileProcessor) Error(pathname string, err error) {
-	log.Fatalf("%s:%s", pathname, err)
+func (n *BaseFileProcessor) Error(path string, err error) {
+	log.Fatalf("%s:%s", path, err)
 }
 func (n *BaseFileProcessor) Finished() {
 }

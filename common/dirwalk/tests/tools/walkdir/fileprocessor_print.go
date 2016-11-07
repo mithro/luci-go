@@ -19,12 +19,12 @@ func (p *PrintFileProcessor) PrintFile(filename string) {
 	fmt.Fprintln(p.obuf, filename)
 }
 
-func (p *PrintFileProcessor) SmallFile(filename string, alldata []byte) {
-	p.BaseFileProcessor.SmallFile(filename, alldata)
+func (p *PrintFileProcessor) SmallFile(filename string, r io.ReadCloser) {
 	p.PrintFile(filename)
+	p.BaseFileProcessor.SmallFile(filename, r)
 }
 
-func (p *PrintFileProcessor) LargeFile(filename string) {
-	p.BaseFileProcessor.LargeFile(filename)
+func (p *PrintFileProcessor) LargeFile(filename string, r io.ReadCloser) {
 	p.PrintFile(filename)
+	p.BaseFileProcessor.LargeFile(filename, r)
 }

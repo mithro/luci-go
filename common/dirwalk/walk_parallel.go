@@ -15,10 +15,8 @@
 package dirwalk
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync/atomic"
 
 	"github.com/eapache/channels"
@@ -49,58 +47,49 @@ func (q *fileQueue) wait() {
 	<-q.waiton
 }
 
-func examinePath(queue *fileQueue, smallfile_limit int64, obs WalkObserver) {
+func examinePath(queue *fileQueue, callback WalkFunc) {
 	for ipath := range queue.items.Out() {
 		path := ipath.(string)
 
 		fi, err := os.Stat(path)
 		if err != nil {
-			obs.Error(path, err)
+			callback(path, -1, nil, err)
 			return
 		}
 
 		if fi.IsDir() {
-			f, err := os.Open(path)
+			d, err := os.Open(path)
 			if err != nil {
-				obs.Error(path, err)
+				callback(path, -1, nil, err)
 			}
 
-			dircontents, err := f.Readdirnames(-1)
+			dircontents, err := d.Readdirnames(-1)
 			if err != nil {
-				obs.Error(path, err)
+				callback(path, -1, nil, err)
 			}
-			sort.Strings(dircontents)
 			for _, name := range dircontents {
 				fname := filepath.Join(path, name)
 				queue.add(fname)
 			}
 		} else {
-			if fi.Size() < smallfile_limit {
-				data, err := ioutil.ReadFile(path)
-				if err != nil {
-					obs.Error(path, err)
-					return
-				}
-				if int64(len(data)) != fi.Size() {
-					panic("file size was wrong!")
-				}
-				obs.SmallFile(path, data)
+			f, err := os.Open(path)
+			if err != nil {
+				callback(path, -1, nil, err)
 			} else {
-				obs.LargeFile(path)
+				callback(path, fi.Size(), f, nil)
 			}
 		}
 		queue.done()
 	}
 }
 
-func WalkParallel(root string, smallfile_limit int64, obs WalkObserver) {
+func WalkParallel(root string, callback WalkFunc) {
 	queue := fileQueue{queued: 0, finished: 0, items: channels.NewInfiniteChannel(), waiton: make(chan bool)}
 
 	for w := 0; w <= 10; w++ {
-		go examinePath(&queue, smallfile_limit, obs)
+		go examinePath(&queue, callback)
 	}
 
 	queue.add(root)
 	queue.wait()
-	obs.Finished()
 }
