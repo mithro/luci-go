@@ -9,7 +9,8 @@ import (
 	"math/rand"
 )
 
-// io.Reader which produces truly random binary data (totally uncompressible).
+// RandomBinaryGenerator is an io.Reader which produces truly random binary
+// data (totally uncompressible).
 func RandomBinaryGenerator(r *rand.Rand) io.Reader {
 	// rand.Rand already produces random binary data via Read()
 	return r
@@ -36,7 +37,8 @@ func (g *textRandomGenerator) Read(p []byte) (n int, err error) {
 	return i, nil
 }
 
-// io.Reader which produces truly random text data (mostly uncompressible).
+// RandomTextGenerator is an io.Reader which produces truly random text data
+// (mostly uncompressible).
 func RandomTextGenerator(r *rand.Rand) io.Reader {
 	reader := textRandomGenerator{r: r}
 	return &reader
@@ -44,8 +46,8 @@ func RandomTextGenerator(r *rand.Rand) io.Reader {
 
 // Repeated sequence size range
 const (
-	SEQUENCE_MINSIZE uint64 = 16
-	SEQUENCE_MAXSIZE uint64 = 4 * 1024
+	SequenceMinSize uint64 = 16
+	SequenceMaxSize uint64 = 4 * 1024
 )
 
 // io.Reader which produces the given byte array repetitively.
@@ -62,28 +64,31 @@ func (g *repeatedByteGenerator) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// io.Reader which produces repeated binary data (some what compressible).
+// RepeatedBinaryGenerator is an io.Reader which produces repeated binary data
+// (some what compressible).
 func RepeatedBinaryGenerator(r *rand.Rand) io.Reader {
 	// Figure out how big the repeated sequence will be
-	sequence_size := randBetween(r, SEQUENCE_MINSIZE, SEQUENCE_MAXSIZE)
+	sequenceSize := randBetween(r, SequenceMinSize, SequenceMaxSize)
 
-	repeater := repeatedByteGenerator{index: 0, data: make([]byte, sequence_size)}
+	repeater := repeatedByteGenerator{index: 0, data: make([]byte, sequenceSize)}
 	r.Read(repeater.data)
 
 	return &repeater
 }
 
-// io.Reader which produces repeated text data (very compressible).
+// RepeatedTextGenerator is an io.Reader which produces repeated text data
+// (very compressible).
 func RepeatedTextGenerator(r *rand.Rand) io.Reader {
 	// Figure out how big the repeated sequence will be
-	sequence_size := randBetween(r, SEQUENCE_MINSIZE, SEQUENCE_MAXSIZE)
+	sequenceSize := randBetween(r, SequenceMinSize, SequenceMaxSize)
 
-	repeater := repeatedByteGenerator{index: 0, data: []byte(randStr(r, sequence_size, textChars))}
+	repeater := repeatedByteGenerator{index: 0, data: []byte(randStr(r, sequenceSize, textChars))}
 
 	return &repeater
 }
 
-// io.Reader which produces repeated Lorem Ipsum text data (very compressible).
+// LoremTextGenerator is an io.Reader which produces repeated Lorem Ipsum text
+// data (very compressible).
 func LoremTextGenerator() io.Reader {
 	repeater := repeatedByteGenerator{index: 0, data: []byte(lorem)}
 	return &repeater

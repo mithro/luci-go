@@ -9,22 +9,23 @@ import (
 	"io"
 )
 
-// PrintFileProcessor implements FileProcessor. It prints the filename of each found file.
+// PrintFileProcessor implements FileProcessor. It prints the path of each found file.
 type PrintFileProcessor struct {
 	BaseFileProcessor
 	obuf io.Writer
 }
 
-func (p *PrintFileProcessor) PrintFile(filename string) {
-	fmt.Fprintln(p.obuf, filename)
+func (p *PrintFileProcessor) Dir(path string) {
+	fmt.Fprintln(p.obuf, "  dir", path)
+	p.BaseFileProcessor.Dir(path)
 }
 
-func (p *PrintFileProcessor) SmallFile(filename string, r io.ReadCloser) {
-	p.PrintFile(filename)
-	p.BaseFileProcessor.SmallFile(filename, r)
+func (p *PrintFileProcessor) SmallFile(path string, r io.ReadCloser) {
+	fmt.Fprintln(p.obuf, "small", path)
+	p.BaseFileProcessor.SmallFile(path, r)
 }
 
-func (p *PrintFileProcessor) LargeFile(filename string, r io.ReadCloser) {
-	p.PrintFile(filename)
-	p.BaseFileProcessor.LargeFile(filename, r)
+func (p *PrintFileProcessor) LargeFile(path string, r io.ReadCloser) {
+	fmt.Fprintln(p.obuf, "large", path)
+	p.BaseFileProcessor.LargeFile(path, r)
 }

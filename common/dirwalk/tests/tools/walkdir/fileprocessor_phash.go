@@ -34,10 +34,10 @@ type ParallelHashFileProcessor struct {
 func ParallelHashFileProcessorWorker(name int, obuf io.Writer, queue <-chan ToHash, finished chan<- bool) {
 	fmt.Fprintf(obuf, "Starting hash worker %d\n", name)
 
-	var filecount uint64 = 0
-	var bytecount uint64 = 0
+	var filecount uint64
+	var bytecount uint64
 	for tohash := range queue {
-		filecount += 1
+		filecount++
 
 		digest, bytes, err := hash(tohash.r)
 		tohash.r.Close()
@@ -53,7 +53,7 @@ func ParallelHashFileProcessorWorker(name int, obuf io.Writer, queue <-chan ToHa
 }
 
 func CreateParallelHashFileProcessor(obuf io.Writer) *ParallelHashFileProcessor {
-	var max int = *maxworkers
+	max := *maxworkers
 
 	maxProcs := runtime.GOMAXPROCS(0)
 	if maxProcs < max {

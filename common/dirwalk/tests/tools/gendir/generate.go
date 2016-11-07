@@ -16,22 +16,22 @@ import (
 )
 
 const (
-	BLOCKSIZE uint64 = 1 * 1024 * 1024 // 1 Megabyte
+	blockSize uint64 = 1 * 1024 * 1024 // 1 Megabyte
 )
 
-func writeFile(filename string, filecontent io.Reader, filesize uint64) {
-	f, err := os.Create(filename)
+func writeFile(fileName string, fileContent io.Reader, fileSize uint64) {
+	f, err := os.Create(fileName)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-	var written uint64 = 0
-	for written < filesize {
-		content := make([]byte, min(filesize-written, BLOCKSIZE))
+	var written uint64
+	for written < fileSize {
+		content := make([]byte, min(fileSize-written, blockSize))
 
 		// Generate a block of content
-		read, err := filecontent.Read(content)
+		read, err := fileContent.Read(content)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -47,23 +47,23 @@ func writeFile(filename string, filecontent io.Reader, filesize uint64) {
 }
 
 const (
-	FILENAME_MINSIZE uint64 = 4
-	FILENAME_MAXSIZE uint64 = 20
+	fileNameMinSize uint64 = 4
+	fileNameMaxSize uint64 = 20
 )
 
-type FileType int
+type fileType int
 
 const (
-	FILETYPE_BIN_RAND   FileType = iota // Truly random binary data (totally uncompressible)
-	FILETYPE_TXT_RAND                   // Truly random text data (mostly uncompressible)
-	FILETYPE_BIN_REPEAT                 // Repeated binary data (compressible)
-	FILETYPE_TXT_REPEAT                 // Repeated text data (very compressible)
-	FILETYPE_TXT_LOREM                  // Lorem Ipsum txt data (very compressible)
+	fileTypeBinaryRandom   fileType = iota // Truly random binary data (totally uncompressible)
+	fileTypeTextRandom                     // Truly random text data (mostly uncompressible)
+	fileTypeBinaryRepeated                 // Repeated binary data (compressible)
+	fileTypeTextRepeated                   // Repeated text data (very compressible)
+	fileTypeTextLorem                      // Lorem Ipsum txt data (very compressible)
 
-	FILETYPE_MAX
+	fileTypeMax
 )
 
-var FileTypeName []string = []string{
+var fileTypeName = []string{
 	"Random Binary",
 	"Random Text",
 	"Repeated Binary",
@@ -71,43 +71,43 @@ var FileTypeName []string = []string{
 	"Lorem Text",
 }
 
-func (f FileType) String() string {
-	return FileTypeName[int(f)]
+func (f fileType) String() string {
+	return fileTypeName[int(f)]
 }
 
 // Generate num files between (min, max) size
-func generateFiles(r *rand.Rand, dir string, num uint64, filesize_min uint64, filesize_max uint64) {
+func generateFiles(r *rand.Rand, dir string, num uint64, fileSizeMin uint64, fileSizeMax uint64) {
 	for i := uint64(0); i < num; i++ {
-		var filename string
-		var filepath string
+		var fileName string
+		var filePath string
 		for true {
-			filename = filenameRandom(r, randBetween(r, FILENAME_MINSIZE, FILENAME_MAXSIZE))
-			filepath = path.Join(dir, filename)
-			if _, err := os.Stat(filepath); os.IsNotExist(err) {
+			fileName = fileNameRandom(r, randBetween(r, fileNameMinSize, fileNameMaxSize))
+			filePath = path.Join(dir, fileName)
+			if _, err := os.Stat(filePath); os.IsNotExist(err) {
 				break
 			}
 		}
-		filesize := randBetween(r, filesize_min, filesize_max)
-		filetype := FileType(r.Intn(int(FILETYPE_MAX)))
+		fileSize := randBetween(r, fileSizeMin, fileSizeMax)
+		filetype := fileType(r.Intn(int(fileTypeMax)))
 
-		var filecontent io.Reader
+		var fileContent io.Reader
 		switch filetype {
-		case FILETYPE_BIN_RAND:
-			filecontent = RandomBinaryGenerator(r)
-		case FILETYPE_TXT_RAND:
-			filecontent = RandomTextGenerator(r)
-		case FILETYPE_BIN_REPEAT:
-			filecontent = RepeatedBinaryGenerator(r)
-		case FILETYPE_TXT_REPEAT:
-			filecontent = RepeatedTextGenerator(r)
-		case FILETYPE_TXT_LOREM:
-			filecontent = LoremTextGenerator()
+		case fileTypeBinaryRandom:
+			fileContent = RandomBinaryGenerator(r)
+		case fileTypeTextRandom:
+			fileContent = RandomTextGenerator(r)
+		case fileTypeBinaryRepeated:
+			fileContent = RepeatedBinaryGenerator(r)
+		case fileTypeTextRepeated:
+			fileContent = RepeatedTextGenerator(r)
+		case fileTypeTextLorem:
+			fileContent = LoremTextGenerator()
 		}
 
 		if num < 1000 {
-			fmt.Printf("File: %-40s %-20s (%s)\n", filename, filetype.String(), humanize.Bytes(filesize))
+			fmt.Printf("File: %-40s %-20s (%s)\n", fileName, filetype.String(), humanize.Bytes(fileSize))
 		}
-		writeFile(filepath, filecontent, filesize)
+		writeFile(filePath, fileContent, fileSize)
 	}
 }
 
@@ -119,7 +119,7 @@ func generateDirs(r *rand.Rand, dir string, num uint64) []string {
 		var dirname string
 		var dirpath string
 		for true {
-			dirname = filenameRandom(r, randBetween(r, FILENAME_MINSIZE, FILENAME_MAXSIZE))
+			dirname = fileNameRandom(r, randBetween(r, fileNameMinSize, fileNameMaxSize))
 			dirpath = path.Join(dir, dirname)
 			if _, err := os.Stat(dirpath); os.IsNotExist(err) {
 				break
@@ -134,24 +134,24 @@ func generateDirs(r *rand.Rand, dir string, num uint64) []string {
 	return result
 }
 
-type FileSettings struct {
+type fileSettings struct {
 	MinNumber uint64
 	MaxNumber uint64
 	MinSize   uint64
 	MaxSize   uint64
 }
 
-type DirSettings struct {
+type dirSettings struct {
 	Number       []uint64
 	MinFileDepth uint64
 }
 
-type TreeSettings struct {
-	Files []FileSettings
-	Dir   DirSettings
+type treeSettings struct {
+	Files []fileSettings
+	Dir   dirSettings
 }
 
-func generateTreeInternal(r *rand.Rand, dir string, depth uint64, settings *TreeSettings) {
+func generateTreeInternal(r *rand.Rand, dir string, depth uint64, settings *treeSettings) {
 	fmt.Printf("%04d:%s -->\n", depth, dir)
 	// Generate the files in this directory
 	if depth >= settings.Dir.MinFileDepth {
@@ -173,7 +173,7 @@ func generateTreeInternal(r *rand.Rand, dir string, depth uint64, settings *Tree
 	fmt.Printf("%04d:%s <--\n", depth, dir)
 }
 
-func GenerateTree(r *rand.Rand, rootdir string, settings *TreeSettings) {
+func generateTree(r *rand.Rand, rootdir string, settings *treeSettings) {
 	generateTreeInternal(r, rootdir, 0, settings)
 	return
 }

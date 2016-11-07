@@ -30,8 +30,8 @@ func randBetween(r *rand.Rand, min uint64, max uint64) uint64 {
 }
 
 // FIXME: Maybe some UTF-8 characters?
-var filenameChars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")
+var fileNameChars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")
 
-func filenameRandom(r *rand.Rand, length uint64) string {
-	return randStr(r, length, filenameChars)
+func fileNameRandom(r *rand.Rand, length uint64) string {
+	return randStr(r, length, fileNameChars)
 }

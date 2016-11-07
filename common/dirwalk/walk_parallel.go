@@ -2,16 +2,6 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// On the majority of systems testing shows that this function is either
-// slower than (or at best comparable) the non-parallel version while consuming
-// many times the resources.
-//
-// Linux Kernel versions newer than >4.8 which disable locks in stat path can
-// make this version faster.
-//
-// Use the performance tests to determine the correct walker for your platform
-// and system!
-
 package dirwalk
 
 import (
@@ -83,6 +73,18 @@ func examinePath(queue *fileQueue, callback WalkFunc) {
 	}
 }
 
+// WalkParallel is a directory walking function which uses multiple threads to
+// walk a directory tree.
+//
+// On the majority of systems testing shows that this function is either
+// slower than (or at best comparable) the non-parallel version while consuming
+// many times the resources.
+//
+// Linux Kernel versions newer than >4.8 which disable locks in stat path can
+// make this version faster.
+//
+// Use the performance tests to determine the correct walker for your platform
+// and system!
 func WalkParallel(root string, callback WalkFunc) {
 	queue := fileQueue{queued: 0, finished: 0, items: channels.NewInfiniteChannel(), waiton: make(chan bool)}
 

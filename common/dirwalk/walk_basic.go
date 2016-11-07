@@ -7,19 +7,29 @@ package dirwalk
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// Trivial implementation of a directory tree walker using built in
-// filepath.Walk function.
+// WalkBasic is the trivial implementation of a directory tree walker using
+// built in filepath.Walk function.
 func WalkBasic(root string, callback WalkFunc) {
+	dirs := newStringStack()
+	dirs.push("")
 	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			callback(path, -1, nil, err)
 			return nil
 		}
 
+		for true {
+			if strings.HasPrefix(path, dirs.peek()) {
+				break
+			}
+			callback(dirs.pop(), -1, nil, nil)
+		}
+
 		if info.IsDir() {
-			callback(path, -1, nil, nil)
+			dirs.push(path)
 		} else {
 			f, err := os.Open(path)
 			if err != nil {
@@ -30,4 +40,10 @@ func WalkBasic(root string, callback WalkFunc) {
 		}
 		return nil
 	})
+	for true {
+		if dirs.peek() == "" {
+			break
+		}
+		callback(dirs.pop(), -1, nil, nil)
+	}
 }

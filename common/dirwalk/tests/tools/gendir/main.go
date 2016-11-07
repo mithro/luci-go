@@ -15,11 +15,11 @@ import (
 	"os"
 )
 
-type TestSettings struct {
+type testSettings struct {
 	Name    string
 	Comment string
 	Seed    int64
-	Tree    TreeSettings
+	Tree    treeSettings
 }
 
 func mainImpl() error {
@@ -34,7 +34,7 @@ func mainImpl() error {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	var settings TestSettings
+	var settings testSettings
 	settings.Seed = *seed
 
 	configdata, err := ioutil.ReadFile(*config)
@@ -69,7 +69,7 @@ func mainImpl() error {
 		return err
 	}
 
-	GenerateTree(r, *outdir, &settings.Tree)
+	generateTree(r, *outdir, &settings.Tree)
 	return nil
 }
 

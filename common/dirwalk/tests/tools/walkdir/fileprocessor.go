@@ -10,51 +10,54 @@ import (
 	"sync/atomic"
 )
 
+// FileProcessor is a basic interface for processing files provided by the
+// directory walking functions.
 type FileProcessor interface {
-	Callback(path string, size int64, r io.ReadCloser, err error) error
+	// Dir is called when a directory has been finished.
+	Dir(path string)
 
+	// SmallFile is called for processing a file which has been classed as "small".
 	SmallFile(path string, r io.ReadCloser)
+
+	// LargeFile is called for processing a file which has been classed as "large".
 	LargeFile(path string, r io.ReadCloser)
 
+	// Error is called when an error occurs on a path.
 	Error(path string, err error)
 
+	// Finished is called when the directory walk is finished.
 	Finished()
 }
 
-// BaseFileProcessor implements Walker. It counts the number of files of each type.
+// BaseFileProcessor implements FileProcessor and counts the number of files of
+// each type.
 type BaseFileProcessor struct {
-	smallfile_size int64
-	smallfiles     uint64
-	largefiles     uint64
+	smallFiles uint64
+	largeFiles uint64
+	dirs       uint64
 }
 
-func (n *BaseFileProcessor) Callback(path string, size int64, r io.ReadCloser, err error) {
-	if err != nil {
-		n.Error(path, err)
-		return
-	}
+func (p *BaseFileProcessor) Dir(path string) {
+	atomic.AddUint64(&p.dirs, 1)
+}
+
+func (p *BaseFileProcessor) SmallFile(path string, r io.ReadCloser) {
+	atomic.AddUint64(&p.smallFiles, 1)
 	if r != nil {
-		// Ignore directories
-		return
-	}
-
-	if size > 0 && size < n.smallfile_size {
-		n.SmallFile(path, r)
-	} else {
-		n.LargeFile(path, r)
+		r.Close()
 	}
 }
 
-func (n *BaseFileProcessor) SmallFile(path string, r io.ReadCloser) {
-	atomic.AddUint64(&n.smallfiles, 1)
-	r.Close()
+func (p *BaseFileProcessor) LargeFile(path string, r io.ReadCloser) {
+	atomic.AddUint64(&p.largeFiles, 1)
+	if r != nil {
+		r.Close()
+	}
 }
-func (n *BaseFileProcessor) LargeFile(path string, r io.ReadCloser) {
-	atomic.AddUint64(&n.largefiles, 1)
-	r.Close()
-}
-func (n *BaseFileProcessor) Error(path string, err error) {
+
+func (p *BaseFileProcessor) Error(path string, err error) {
 	log.Fatalf("%s:%s", path, err)
 }
-func (n *BaseFileProcessor) Finished() {
+
+func (p *BaseFileProcessor) Finished() {
 }
